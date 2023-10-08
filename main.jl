@@ -1,78 +1,111 @@
-function LxF(Q::Array, n, i, f::Function)
-    return 1.0/2.0 * (Q[n, i-1] + Q[n, i+1]) - t/(2.0*h) * (f(Q[n, i+1]) - f(Q[n, i-1]))
+# Hyberbolic system solver
+# Copyright (C) 2023    Ermakov Ilya
+# e-mail: ermakoff.ilya@outlook.com
+
+##### Condition functions ######
+
+function LeftBoundaryCondition(t)
+    return [pho_l, pho_l * u_l, p_l / (gamma - 1) + 0.5 * pho_l * u_l^2]
 end
 
-function LeftBorderCondition(n)
-    return [1.0, 0, 1.0 / (gamma - 1)]
-end
-
-function RightBorderCondition(n)
-    return [0.125, 0, 0.1 / (gamma - 1)]
+function RightBoundaryCondition(t)
+    return [pho_r, pho_r * u_r, p_r / (gamma - 1) + 0.5 * pho_r * u_r^2]
 end
 
 function InitialCondition(i)
-    if (i-1) * h < 0.5
-        return [1.0, 0, 1.0 / (gamma - 1)]
+    if (i-1) * dx < 0.5
+        return [pho_l, pho_l * u_l, p_l / (gamma - 1) + 0.5 * pho_l * u_l^2]
     else
-        return [0.125, 0, 0.1 / (gamma - 1)]
+        return [pho_r, pho_r * u_r, p_r / (gamma - 1) + 0.5 * pho_r * u_r^2]
     end
 end
 
-function f(q::Array)
-    # rho =  q[2]^2/q[1]
-    rho = q[1]
-    u = q[2]/rho
-    etot = q[3]
-    eint = etot - 1.0/2.0 * rho * u^2
+##### Calculating functions #####
+
+function f(Q::Array) 
+    rho = Q[1]
+    u = Q[2] / rho
+    etot = Q[3]
+    eint = etot - 0.5 * rho * u^2
     p = eint * (gamma - 1)
-    return [ q[2], 
-             rho * u^2  + p,
-             (etot + p) * u ]
+    return [Q[2], 
+            rho * u^2  + p,
+            (etot + p) * u]
 end
 
-X = 1.0 # Dimension coordinate boundary [meters]
-T = 0.15 # Time boundary [seconds]
+# Returns a value of flow between Q[1] and Q[2]
+function LxF(Q::Array, dt) 
+    return 0.5 * (f(Q[:, 1]) + f(Q[:, 2])) - 0.5 * dx/dt * (Q[:, 2] - Q[:, 1])
+end
 
-xSteps = 500 # Number of steps on dimension coordinate
-tSteps = 2000 # Number of steps on time
+# Returns a value of cell on the next time layer
+function CalculateCell(Q::Array, F::Function, dt) 
+    return Q[:, 2] - dt/dx * (F(Q[:, 2:3], dt) - F(Q[:, 1:2], dt))
+end
 
-h = X / xSteps # Step on dimension coordinate
-t = T / tSteps # Step on time
+##### Condition constants #####
+
+pho_l = 1.0 # Left boundary density
+u_l = 0 # Left boundary gas velocity (along x)
+p_l = 1.0 # Left boundary pressure
+
+pho_r = 0.125 # Right boundary density
+u_r = 0 # Right boundary gas velocity (along x)
+p_r = 0.1 # Right boundary pressure
+
+##### Main part of programm #####
+
+X = 1.0 # Coordinate boundary [meters]
+T = 0.2 # Time boundary [seconds]
+
+nx = 500 # Number of steps on dimension coordinate
 gamma = 1.4 # Polytropic index
+cu = 0.99 # Courant number
 
-Q = fill(Array{Float64}(undef, 3) , tSteps, xSteps)
+dx = X / nx # Coordinate step
 
-for i in axes(Q, 2)
-    Q[1, i] = InitialCondition(i)
+# Creating a 2-dimension calculation field
+Q0 = Array{Float64}(undef, 3, nx) 
+
+for i in 1:nx 
+    Q0[:, i] = InitialCondition(i)
 end
 
-for n in 2:size(Q)[1]
-    Q[n, 1] = LeftBorderCondition(n)
-    Q[n, size(Q, 2)] = RightBorderCondition(n)
-    for i in 2:size(Q, 2)-1
-        Q[n, i] = LxF(Q, n-1, i, f)
+t = 0
+while t < T
+    # Finding time step
+    lambda = abs(Q0[2, 1]/Q0[1, 1])
+    for i in 1:nx
+        rho = Q0[1, i]
+        u = Q0[2, i] / rho
+        etot = Q0[3, i]
+        eint = etot - 0.5 * rho * u^2
+        p = eint * (gamma - 1)
+        c = sqrt(gamma * p / rho)
+        lambda = max(abs(lambda), abs(u), abs(u + c), abs(u - c))
     end
+    global dt = cu * dx / lambda
+    ##
+    global t += dt
+    
+    # Creating next time layer
+    Q1 = similar(Q0)
+    Q1[:, begin] = LeftBoundaryCondition(t)
+    Q1[:, end] = RightBoundaryCondition(t)
+    for i in 2:nx-1
+        Q1[:, i] = CalculateCell(Q0[:, i-1:i+1], LxF, dt)
+    end
+
+    global Q0 = copy(Q1)
 end
 
-# for i in axes(Q, 2)
-#     print(Q[end, i][1], " ")
-# end
+##### Plotting #####
 
 using Plots
-
-x = [h * i for i in 0:xSteps-1]
-y = [Q[end, i][1] for i in axes(Q, 2)]
-plot(x, y)
-savefig("pho.png")
-
-x = [h * i for i in 0:xSteps-1]
-y = [Q[end, i][2] for i in axes(Q, 2)]
-plot(x, y)
-savefig("phou.png")
-
-x = [h * i for i in 0:xSteps-1]
-y = [Q[end, i][3] for i in axes(Q, 2)]
-plot(x, y)
-savefig("E.png")
-
-
+    
+for j in 1:3   
+    x = [dx * i for i in 0:nx-1]
+    y = [Q0[j, i] for i in 1:nx]
+    plot(x, y)
+    savefig(string("Q", j, ".png"))
+end
