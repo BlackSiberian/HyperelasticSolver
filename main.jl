@@ -22,6 +22,18 @@ end
 
 ##### Calculating functions #####
 
+# Returns a triplet of eigenvalues
+function EigenValue(Q::Array)
+    rho = Q[1]
+    u = Q[2] / rho
+    etot = Q[3]
+    eint = etot - 0.5 * rho * u^2
+    p = eint * (gamma - 1)
+    c = sqrt(gamma * p / rho)
+    return [u, u + c, u - c]
+end
+
+# Returns the value of the flow in Q
 function f(Q::Array) 
     rho = Q[1]
     u = Q[2] / rho
@@ -33,12 +45,29 @@ function f(Q::Array)
             (etot + p) * u]
 end
 
-# Returns a value of flow between Q[1] and Q[2]
+# Returns the value of the flow between Q[1] and Q[2] using the Lax-Friedrichs method
 function LxF(Q::Array, dt) 
     return 0.5 * (f(Q[:, 1]) + f(Q[:, 2])) - 0.5 * dx/dt * (Q[:, 2] - Q[:, 1])
 end
 
-# Returns a value of cell on the next time layer
+# Returns the value of the flow between Q[1] and Q[2] using the HLL method
+function HLL(Q::Array, dt)
+    leigenvalues = EigenValue(Q[:, 1])
+    reigenvalues = EigenValue(Q[:, 2])
+    S_l = minimum([leigenvalues; reigenvalues])
+    S_r = maximum([leigenvalues; reigenvalues])
+    if S_r < 0
+        return f(Q[:, 2])
+    elseif S_l > 0
+        return f(Q[:, 1])
+    else
+        Qhll = (f(Q[:, 1]) - f(Q[:, 2]) + Q[:, 2] .* S_r - Q[:, 1] .* S_l) ./ (S_r - S_l)
+        Fhll = f(Q[:, 2]) + S_r .* (Qhll - Q[:, 2])
+        return Fhll
+    end
+end
+
+# Returns the value of quantity in the cell to the next time layer
 function CalculateCell(Q::Array, F::Function, dt) 
     return Q[:, 2] - dt/dx * (F(Q[:, 2:3], dt) - F(Q[:, 1:2], dt))
 end
@@ -58,7 +87,7 @@ p_r = 0.1 # Right boundary pressure
 X = 1.0 # Coordinate boundary [meters]
 T = 0.2 # Time boundary [seconds]
 
-nx = 500 # Number of steps on dimension coordinate
+nx = 2000 # Number of steps on dimension coordinate
 gamma = 1.4 # Polytropic index
 cu = 0.99 # Courant number
 
@@ -73,27 +102,22 @@ end
 
 t = 0
 while t < T
-    # Finding time step
+    # Finding the time step
     lambda = abs(Q0[2, 1]/Q0[1, 1])
     for i in 1:nx
-        rho = Q0[1, i]
-        u = Q0[2, i] / rho
-        etot = Q0[3, i]
-        eint = etot - 0.5 * rho * u^2
-        p = eint * (gamma - 1)
-        c = sqrt(gamma * p / rho)
-        lambda = max(abs(lambda), abs(u), abs(u + c), abs(u - c))
+        eigenvalues = EigenValue(Q0[:, i])
+        lambda = max(maximum(abs.(eigenvalues)), lambda)
     end
     global dt = cu * dx / lambda
-    ##
+    
     global t += dt
     
-    # Creating next time layer
+    # Creating the next time layer
     Q1 = similar(Q0)
     Q1[:, begin] = LeftBoundaryCondition(t)
     Q1[:, end] = RightBoundaryCondition(t)
     for i in 2:nx-1
-        Q1[:, i] = CalculateCell(Q0[:, i-1:i+1], LxF, dt)
+        Q1[:, i] = CalculateCell(Q0[:, i-1:i+1], HLL, dt)
     end
 
     global Q0 = copy(Q1)
@@ -103,9 +127,16 @@ end
 
 using Plots
     
-for j in 1:3   
-    x = [dx * i for i in 0:nx-1]
-    y = [Q0[j, i] for i in 1:nx]
-    plot(x, y)
-    savefig(string("Q", j, ".png"))
-end
+x = [dx * i for i in 0:nx-1]
+rho = Q0[1, :]
+u = Q0[2, :] ./ rho
+etot = Q0[3, :]
+eint = etot - 0.5 .* rho .* u.^2
+p = eint .* (gamma - 1)
+
+plot(x, rho)
+savefig("density.png")
+plot(x, u)
+savefig("velocity.png")
+plot(x, p)
+savefig("pressure.png")
