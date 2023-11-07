@@ -2,6 +2,10 @@
 # Copyright (C) 2023    Ermakov Ilya
 # e-mail: ermakoff.ilya@outlook.com
 
+##### Neccessery includes #####
+
+using Plots
+
 ##### Condition functions ######
 
 function LeftBoundaryCondition(t)
@@ -14,9 +18,9 @@ end
 
 function InitialCondition(i)
     if (i-1) * dx < 0.5
-        return [pho_l, pho_l * u_l, p_l / (gamma - 1) + 0.5 * pho_l * u_l^2]
+        return LeftBoundaryCondition(0)
     else
-        return [pho_r, pho_r * u_r, p_r / (gamma - 1) + 0.5 * pho_r * u_r^2]
+        return RightBoundaryCondition(0)
     end
 end
 
@@ -106,7 +110,7 @@ while t < T
     lambda = abs(Q0[2, 1]/Q0[1, 1])
     for i in 1:nx
         eigenvalues = EigenValue(Q0[:, i])
-        lambda = max(maximum(abs.(eigenvalues)), lambda)
+        lambda = maximum([abs.(eigenvalues); lambda])
     end
     global dt = cu * dx / lambda
     
@@ -124,8 +128,6 @@ while t < T
 end
 
 ##### Plotting #####
-
-using Plots
     
 x = [dx * i for i in 0:nx-1]
 rho = Q0[1, :]
