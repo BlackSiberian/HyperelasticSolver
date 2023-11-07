@@ -17,11 +17,11 @@ function LeftBoundaryCondition(t)
     G = inv(F_l * transpose(F_l))
     I1 = tr(G)
     I3 = det(abs.(G))
-    I2 = 0.5 * I3 *(tr(G)^2 - tr(G^2))
+    I2 = 0.5 * (tr(G)^2 - tr(G^2))
     B0 = b0^2
-    K0 = c0^2 - (4/3)*B0
-    U = 0.5 * K0 / alpha^2 * (I3^(0.5*alpha) - 1)^2 + cv * T0 * I3^(0.5*gamma) * (exp(S_l / cv) - 1)
-    W = B0/2 * I3^(0.5*beta)*(I1^2/3 - I2)
+    K0 = c0^2 - (4/3)*b0^2
+    U = 0.5 * K0 / (alpha^2) * (I3^(0.5*alpha) - 1)^2 + cv * T0 * I3^(0.5*gamma) * (exp(S_l / cv) - 1)
+    W = 0.5 * B0 * I3^(0.5*beta)*(I1^2 / 3 - I2)
     eint = U + W
     E = eint + 0.5 * (u_l[1]^2 + u_l[2]^2 + u_l[3]^2)
     Q[13] = rho * E
@@ -40,11 +40,11 @@ function RightBoundaryCondition(t)
     G = inv(F_r * transpose(F_r))
     I1 = tr(G)
     I3 = det(abs.(G))
-    I2 = 0.5 * I3 *(tr(G)^2 - tr(G^2))
+    I2 = 0.5 * (tr(G)^2 - tr(G^2))
     B0 = b0^2
-    K0 = c0^2 - (4/3)*B0
-    U = 0.5 * K0 / alpha^2 * (I3^(0.5*alpha) - 1)^2 + cv * T0 * I3^(0.5*gamma) * (exp(S_r / cv) - 1)
-    W = B0/2 * I3^(0.5*beta)*(I1^2/3 - I2)
+    K0 = c0^2 - (4/3)*b0^2
+    U = 0.5 * K0 / (alpha^2) * (I3^(0.5*alpha) - 1)^2 + cv * T0 * I3^(0.5*gamma) * (exp(S_r / cv) - 1)
+    W = 0.5 * B0 * I3^(0.5*beta)*(I1^2 / 3 - I2)
     eint = U + W
     E = eint + 0.5 * (u_r[1]^2 + u_r[2]^2 + u_r[3]^2)
     Q[13] = rho * E
@@ -52,7 +52,7 @@ function RightBoundaryCondition(t)
 end
 
 function InitialCondition(i)
-    if (i-1) * dx < 0.5
+    if (i-1) * dx < 0.5 * X
         return LeftBoundaryCondition(0)
     else
         return RightBoundaryCondition(0)
@@ -84,11 +84,11 @@ function f(Q::Array)
     B0 = b0^2
     I1 = tr(G)
     I3 = det(abs.(G))
-    I2 = 0.5 * I3 *(tr(G)^2 - tr(G^2))
+    I2 = 0.5 * (tr(G)^2 - tr(G^2))
     e1 = B0 * I1 * I3^(0.5*beta) / 3
     e2 = - 0.5 * B0 * I3^(0.5*beta)
     e3 = 0.5 * K0 / alpha * (I3^(0.5*alpha) - 1) + 0.25 * beta * B0 * (I1^2 / 3 - I2) * I3^(0.5*beta-1)
-    e3 += 0.5 * gamma * (Q[13] / rho - 0.5 * (Q[1]^2 + Q[2]^2 + Q[3]^2) / rho^2 - 0.5 * B0 * I3^(0.5*beta) * (I1^2 / 3 - I2) - K0 / alpha * (I3^(0.5*alpha) - 1)^2) / I3
+    e3 += 0.5 * gamma * (Q[13] / rho - 0.5 * (Q[1]^2 + Q[2]^2 + Q[3]^2) / (rho^2) - 0.5 * B0 * I3^(0.5*beta) * (I1^2 / 3 - I2) - 0.5 * K0 / (alpha^2) * (I3^(0.5*alpha) - 1)^2) / I3
     sigma = -2 * rho .* G * (e1 .* I + e2 * I1 .* I - e2 .* G + e3 * I3 .* inv(G))
 
     f = similar(Q)
@@ -150,7 +150,7 @@ gamma = 2.0 # constants
 ##### Main part of programm #####
 
 X = 1.0 # Coordinate boundary [m]
-T = 0.1 # Time boundary [s]
+T = 0.6e-3 # Time boundary [s]
 
 nx = 500 # Number of steps on dimension coordinate
 # gamma = 1.4 # Polytropic index
@@ -174,11 +174,11 @@ while t < T
         # eigenvalues = EigenValue(Q0[:, i])
         # lambda = max(maximum(abs.(eigenvalues)), lambda)
         Q = Q0[:, i]
-        FQ = [Q[4] Q[5] Q[6];
-          Q[7] Q[8] Q[9];
-          Q[10] Q[11] Q[12]]
+        FQ = [Q[4]  Q[5]  Q[6];
+              Q[7]  Q[8]  Q[9];
+              Q[10] Q[11] Q[12]]
         rho = sqrt(det(abs.(FQ))/rho0)
-        lambda = max(abs(Q0[1, i]) / rho + 500, lambda) # TODO replace 5000 with max eigenvalue
+        lambda = max(abs(Q0[1, i]) / rho + 5000, lambda) # TODO replace 5000 with max eigenvalue
     end
     global dt = cu * dx / lambda
     
