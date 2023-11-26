@@ -137,8 +137,8 @@ eint = etot - 0.5 .* rho .* u.^2
 p = eint .* (gamma - 1)
 
 plot(x, rho)
-savefig("density.png")
+savefig("plots/density.png")
 plot(x, u)
-savefig("velocity.png")
+savefig("plots/velocity.png")
 plot(x, p)
-savefig("pressure.png")
+savefig("plots/pressure.png")
