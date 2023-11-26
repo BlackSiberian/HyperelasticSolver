@@ -89,8 +89,8 @@ function InitialCondition(testcase::Int)
         S_l = 0.0 # [kJ/(g*K)]
         
         u_r = [0.0, -0.03, -0.01] # [km/s]
-        F_r = [ 1.0     0.0     0.0
-                0.015   0.95    0.0
+        F_r = [ 1.0     0.0     0.0;
+                0.015   0.95    0.0;
                 -0.01   0.0     0.9]
         S_r = 0.0 # [kJ/(g*K)]
     elseif testcase == 3
@@ -262,7 +262,7 @@ while t < T
 
     if nstep % 100 == 0
         # Saving the solution array to a file
-        file = open("$(nstep).dat", "w")
+        local file = open("$(nstep).dat", "w")
         write(file, "$t\n")
         for i in 1:nx
             write(file, join(Q0[:, i], "\t"), "\n")
