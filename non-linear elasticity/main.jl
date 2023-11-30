@@ -16,8 +16,7 @@ end
 
 # Returns the triplet of symmetric tensor invariants
 # @param F is the elastic deformation gradient tensor
-function Invariants(F::Array)
-    G = Finger(F) # Get symmetric tensor (Finger's tensor in this case)
+function Invariants(G::Array)
     I1 = tr(G)
     I2 = 0.5 * (tr(G)^2 - tr(G^2))
     I3 = det(G)
@@ -59,7 +58,8 @@ dI3dG(G, I1, I2, I3) = I3 .* inv(G) # @param I1, I2, I3 are the invariants
 
 # Returns the stress tensor
 function Stress(den, e_int, F::Array)
-    I1, I2, I3 = Invariants(F)
+    G = Finger(F) 
+    I1, I2, I3 = Invariants(G)
     G = Finger(F)
 
     e1, e2, e3 = dEoS(e_int, [I1, I2, I3])
@@ -114,9 +114,11 @@ function InitialCondition(testcase::Int)
     Q = Array{Float64}(undef, 13, nx)
     for i in 1:nx
         if (i-1) * dx < 0.5 * X
-            Q[:, i] = BoundaryCondition(u_l, F_l, S_l)
+            # Q[:, i] = BoundaryCondition(u_l, F_l, S_l)
+            Q[:, i] = Prim2Cons(u_l, F_l, S_l)
         else
-            Q[:, i] = BoundaryCondition(u_r, F_r, S_r)
+            # Q[:, i] = BoundaryCondition(u_r, F_r, S_r)
+            Q[:, i] = Prim2Cons(u_r, F_r, S_r)
         end
     end
     return Q
@@ -132,53 +134,58 @@ function Cons2Prim(Q::Array)
     vel = Q[1:3] ./ den
     F = FQ ./ den
     E = Q[13] / den
-    return [den, vel, F, E]
+    e_kin = 0.5 * (vel[1]^2 + vel[2]^2 + vel[3]^2)
+    e_int = E - e_kin
+    return [den, vel, F, e_int]
 end
 
 # TODO: Prim2Cons is equivalent to BoundaryCondition
 # Translates primitive variables to conservative variables
-# function Prim2Cons(vel::Array, F::Array, S)
-#     Q = Array{Float64}(undef, 13)
-#     den = rho0 / det(F)
-#     Q[1:3] = den .* vel
-#     for i in 1:3
-#         for j in 1:3
-#             Q[3*i + j] = den * F[i, j]
-#         end
-#     end
-#     e_kin = 0.5 * (vel[1]^2 + vel[2]^2 + vel[3]^2)
-#     i = Invariants(F)
-#     E = EoS(S, i) + e_kin
-#     Q[13] = den * E
-#     return Q
-# end
-
-# Sets the boundary conditions to the solution
 # @param vel is the velocity vector
 # @param F is the deformation gradient tensor
 # @param S is the entropy
-function BoundaryCondition(vel::Array, F::Array, S)
-    Q = Array{Float64}(undef, 13) # Conservative variables vector
+function Prim2Cons(vel::Array, F::Array, S)
+    Q = Array{Float64}(undef, 13)
     den = rho0 / det(F)
+    Q[1:3] = den .* vel
     for i in 1:3
-        Q[i] = den * vel[i]
         for j in 1:3
             Q[3*i + j] = den * F[i, j]
         end
     end
     e_kin = 0.5 * (vel[1]^2 + vel[2]^2 + vel[3]^2)
-    i = Invariants(F)
+    G = Finger(F) 
+    i = Invariants(G)
     E = EoS(S, i) + e_kin
     Q[13] = den * E
     return Q
 end
 
+# Sets the boundary conditions to the solution
+# @param vel is the velocity vector
+# @param F is the deformation gradient tensor
+# @param S is the entropy
+# function BoundaryCondition(vel::Array, F::Array, S)
+#     Q = Array{Float64}(undef, 13) # Conservative variables vector
+#     den = rho0 / det(F)
+#     for i in 1:3
+#         Q[i] = den * vel[i]
+#         for j in 1:3
+#             Q[3*i + j] = den * F[i, j]
+#         end
+#     end
+#     e_kin = 0.5 * (vel[1]^2 + vel[2]^2 + vel[3]^2)
+#     G = Finger(F) 
+#     i = Invariants(G)
+#     E = EoS(S, i) + e_kin
+#     Q[13] = den * E
+#     return Q
+# end
+
 # Returns the value of the physical flux in Q
 # @param Q is the conservative variables vector
 function Flux(Q::Array) 
-    den, vel, F, E = Cons2Prim(Q)
-    e_kin = 0.5 * (vel[1]^2 + vel[2]^2 + vel[3]^2)
-    e_int = E - e_kin
+    den, vel, F, e_int = Cons2Prim(Q)
     sigma = Stress(den, e_int, F)
 
     flux = similar(Q)
@@ -188,6 +195,8 @@ function Flux(Q::Array)
         flux[i+6] = den * (F[2, i] * vel[1] - F[1, i] * vel[2])
         flux[i+9] = den * (F[3, i] * vel[1] - F[1, i] * vel[3])
     end
+    e_kin = 0.5 * (vel[1]^2 + vel[2]^2 + vel[3]^2)
+    E = e_int + e_kin
     flux[13] = den * vel[1] * E - vel[1] * sigma[1, 1] - vel[2] * sigma[1, 2] - vel[3] * sigma[1, 3]
     return flux
 end
@@ -208,7 +217,8 @@ function UpdateCell(Q::Array, F::Function, lambda)
     return Q - 1.0 / lambda * (F_r - F_l)
 end
 
-testcase = 2 # Select the test case
+testcase = 2    # Select the test case
+log_freq = 10   # Log frequency
 
 rho0 = 8.93 # Initial density [g/cm^3]
 c0 = 4.6    # Speed of sound [km/s]
@@ -222,7 +232,7 @@ gamma = 2.0 # constants
 X = 1.0     # Coordinate boundary [m]
 T = 0.06     # Time boundary [s]
 
-nx = 2000    # Number of steps on dimension coordinate
+nx = 500    # Number of steps on dimension coordinate
 cu = 0.6    # Courant-Friedrichs-Levy number
 
 dx = X / nx # Coordinate step
@@ -260,7 +270,7 @@ while t < T
 
     global Q0 = copy(Q1)
 
-    if nstep % 100 == 0
+    if nstep % log_freq == 0
         # Saving the solution array to a file
         local file = open("$(nstep).dat", "w")
         write(file, "$t\n")
@@ -291,9 +301,7 @@ vel = Array{Float64, 2}(undef, 3, nx)
 stress = Array{Float64, 3}(undef, 3, 3, nx)
 for i in 1:nx
     Q = Q0[:, i]
-    den[i], vel[:, i], F, E = Cons2Prim(Q)
-    e_kin = 0.5 * (vel[1, i]^2 + vel[2, i]^2 + vel[3, i]^2)
-    e_int = E - e_kin
+    den[i], vel[:, i], F, e_int = Cons2Prim(Q)
     local sigma = Stress(den[i], e_int, F)
     for j in 1:3
         for k in 1:3
