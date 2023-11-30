@@ -220,9 +220,9 @@ beta = 3.0  # characteristic
 gamma = 2.0 # constants
 
 X = 1.0     # Coordinate boundary [m]
-T = 0.6     # Time boundary [s]
+T = 0.06     # Time boundary [s]
 
-nx = 500    # Number of steps on dimension coordinate
+nx = 2000    # Number of steps on dimension coordinate
 cu = 0.6    # Courant-Friedrichs-Levy number
 
 dx = X / nx # Coordinate step
@@ -292,7 +292,7 @@ stress = Array{Float64, 3}(undef, 3, 3, nx)
 for i in 1:nx
     Q = Q0[:, i]
     den[i], vel[:, i], F, E = Cons2Prim(Q)
-    e_kin = 0.5 * (vel[1]^2 + vel[2]^2 + vel[3]^2)
+    e_kin = 0.5 * (vel[1, i]^2 + vel[2, i]^2 + vel[3, i]^2)
     e_int = E - e_kin
     local sigma = Stress(den[i], e_int, F)
     for j in 1:3
