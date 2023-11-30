@@ -23,21 +23,15 @@ function Invariants(G::Array)
     return [I1, I2, I3]
 end
 
-# Returns the triplet of derivatives of the internal energy to the invariants
+# Returns the value of the entropy
 # @param e_int is the internal energy
 # @param i is invariants
-function dEoS(e_int, i::Array)
-    B0 = b0^2               # Squared speed of the shear wave
-    K0 = c0^2 - (4/3)*b0^2  # Square bulk speed of sound
-    
-    # TODO: Probably implement automatic differentiation
-    e1 = B0 * i[1] * i[3]^(0.5*beta) / 3.0
-    e2 = - 0.5 * B0 * i[3]^(0.5*beta)
-    e3 = 0.5 * K0 / alpha * (i[3]^(0.5*alpha) - 1) * i[3]^(0.5*alpha-1) + 0.25 * beta * B0 * (i[1]^2 / 3 - i[2]) * i[3]^(0.5*beta-1)
-    e3 += 0.5 * gamma * (e_int - 0.5 * B0 * i[3]^(0.5*beta) * (i[1]^2 / 3 - i[2]) - 0.5 * K0 / (alpha^2) * (i[3]^(0.5*alpha) - 1)^2) / i[3]
-    # TODO: Check this in Wolfram Mathematica
-
-    return [e1, e2, e3]
+function Entropy(e_int, i::Array)
+    B0 = b0^2
+    K0 = c0^2 - (4/3)*b0^2
+    S = e_int - 0.5 * B0 * i[3]^(0.5*beta) * (i[1]^2 / 3 - i[2]) - 0.5 * K0 / (alpha^2) * (i[3]^(0.5*alpha) - 1)^2
+    S = (S / (cv * T0 * i[3]^(0.5*gamma)) + 1)
+    return log(S) * cv
 end
 
 # Returns the value of the internal energy
@@ -50,6 +44,22 @@ function EoS(S, i::Array)
     W = 0.5 * B0 * i[3]^(0.5*beta)*(i[1]^2 / 3 - i[2])
     e_int = U + W
     return e_int
+end
+
+# Returns the triplet of derivatives of the internal energy to the invariants
+# @param e_int is the internal energy
+# @param i is invariants
+function dEoS(e_int, i::Array)
+    B0 = b0^2               # Squared speed of the shear wave
+    K0 = c0^2 - (4/3)*b0^2  # Square bulk speed of sound
+    
+    # TODO: Probably implement automatic differentiation
+    e1 = B0 * i[1] * i[3]^(0.5*beta) / 3.0
+    e2 = - 0.5 * B0 * i[3]^(0.5*beta)
+    e3 = 0.5 * K0 / alpha * (i[3]^(0.5*alpha) - 1) * i[3]^(0.5*alpha-1) + 0.25 * beta * B0 * (i[1]^2 / 3 - i[2]) * i[3]^(0.5*beta-1)
+    e3 += 0.5 * gamma * (e_int - 0.5 * B0 * i[3]^(0.5*beta) * (i[1]^2 / 3 - i[2]) - 0.5 * K0 / (alpha^2) * (i[3]^(0.5*alpha) - 1)^2) / i[3]
+
+    return [e1, e2, e3]
 end
 
 dI1dG(G, I1, I2, I3) = I            # Returns the derivative of I with respect to G
@@ -65,63 +75,6 @@ function Stress(den, e_int, F::Array)
     e1, e2, e3 = dEoS(e_int, [I1, I2, I3])
 
     return -2.0 * den .* G * (e1 .* dI1dG(G, I1, I2, I3) + e2 .* dI2dG(G, I1, I2, I3) + e3 .* dI3dG(G, I1, I2, I3))
-end
-
-# Sets initial conditions to the solution
-function InitialCondition(testcase::Int)
-    if testcase == 1
-        u_l = [0.0, 0.5, 1.0]       # velocity on the left boundary [km/s]
-        F_l = [ 0.98  0.0   0.0;    # elastic deformation gradient tensor
-                0.02  1.0   0.1;    # on the left boundary
-                0.0   0.0   1.0]
-        S_l = 1e-3                  # Entropy on the left boundary [kJ/(g*K)]
-        
-        u_r = [0.0, 0.0, 0.0]       # velocity on the right boundary [km/s]
-        F_r = [ 1.0    0.0   0.0;   # elastic deformation gradient tensor
-                0.0    1.0   0.1;   # on the right boundary
-                0.0    0.0   1.0]
-        S_r = 0                     # Entropy on the right boundary [kJ/(g*K)]
-    elseif testcase == 2
-        u_l = [2.0, 0.0, 0.1] # [km/s]
-        F_l = [ 1.0     0.0   0.0 ;
-                -0.01   0.95  0.02; 
-                -0.015  0.0   0.9 ]
-        S_l = 0.0 # [kJ/(g*K)]
-        
-        u_r = [0.0, -0.03, -0.01] # [km/s]
-        F_r = [ 1.0     0.0     0.0;
-                0.015   0.95    0.0;
-                -0.01   0.0     0.9]
-        S_r = 0.0 # [kJ/(g*K)]
-    elseif testcase == 3
-        u_l = [1.0, 0.0, 0.0] # [km/s]
-        F_l = [0.5      -0.5*3^0.5      0.0;
-               0.5*3^0.5    0.5         0.0;
-               0.0          0.0         1.0]
-        S_l = 0.0 # [kJ/(g*K)]
-        
-        u_r = [1.0, 0.0, 0.0] # [km/s]
-        F_r = [0.5       -0.5*3^0.5     0.0;
-               0.5*3^0.5    0.5         0.0;
-               0.0          0.0         1.0]
-        S_r = 0.0 # [kJ/(g*K)]
-    else 
-        u_l = u_r = zeros(3)
-        F_l = F_r = Array{Float64}(I, 3, 3)
-        S_l = S_r = 0.0
-    end
-
-    Q = Array{Float64}(undef, 13, nx)
-    for i in 1:nx
-        if (i-1) * dx < 0.5 * X
-            # Q[:, i] = BoundaryCondition(u_l, F_l, S_l)
-            Q[:, i] = Prim2Cons(u_l, F_l, S_l)
-        else
-            # Q[:, i] = BoundaryCondition(u_r, F_r, S_r)
-            Q[:, i] = Prim2Cons(u_r, F_r, S_r)
-        end
-    end
-    return Q
 end
 
 # Translates conservative variables to primitive variables
@@ -217,6 +170,63 @@ function UpdateCell(Q::Array, F::Function, lambda)
     return Q - 1.0 / lambda * (F_r - F_l)
 end
 
+# Sets initial conditions to the solution
+function InitialCondition(testcase::Int)
+    if testcase == 1
+        u_l = [0.0, 0.5, 1.0]       # velocity on the left boundary [km/s]
+        F_l = [ 0.98  0.0   0.0;    # elastic deformation gradient tensor
+                0.02  1.0   0.1;    # on the left boundary
+                0.0   0.0   1.0]
+        S_l = 1e-3                  # Entropy on the left boundary [kJ/(g*K)]
+        
+        u_r = [0.0, 0.0, 0.0]       # velocity on the right boundary [km/s]
+        F_r = [ 1.0    0.0   0.0;   # elastic deformation gradient tensor
+                0.0    1.0   0.1;   # on the right boundary
+                0.0    0.0   1.0]
+        S_r = 0                     # Entropy on the right boundary [kJ/(g*K)]
+    elseif testcase == 2
+        u_l = [2.0, 0.0, 0.1] # [km/s]
+        F_l = [ 1.0     0.0   0.0 ;
+                -0.01   0.95  0.02; 
+                -0.015  0.0   0.9 ]
+        S_l = 0.0 # [kJ/(g*K)]
+        
+        u_r = [0.0, -0.03, -0.01] # [km/s]
+        F_r = [ 1.0     0.0     0.0;
+                0.015   0.95    0.0;
+                -0.01   0.0     0.9]
+        S_r = 0.0 # [kJ/(g*K)]
+    elseif testcase == 3
+        u_l = [1.0, 0.0, 0.0] # [km/s]
+        F_l = [0.5      -0.5*3^0.5      0.0;
+               0.5*3^0.5    0.5         0.0;
+               0.0          0.0         1.0]
+        S_l = 0.0 # [kJ/(g*K)]
+        
+        u_r = [1.0, 0.0, 0.0] # [km/s]
+        F_r = [0.5       -0.5*3^0.5     0.0;
+               0.5*3^0.5    0.5         0.0;
+               0.0          0.0         1.0]
+        S_r = 0.0 # [kJ/(g*K)]
+    else 
+        u_l = u_r = zeros(3)
+        F_l = F_r = Array{Float64}(I, 3, 3)
+        S_l = S_r = 0.0
+    end
+
+    Q = Array{Float64}(undef, 13, nx)
+    for i in 1:nx
+        if (i-1) * dx < 0.5 * X
+            # Q[:, i] = BoundaryCondition(u_l, F_l, S_l)
+            Q[:, i] = Prim2Cons(u_l, F_l, S_l)
+        else
+            # Q[:, i] = BoundaryCondition(u_r, F_r, S_r)
+            Q[:, i] = Prim2Cons(u_r, F_r, S_r)
+        end
+    end
+    return Q
+end
+
 testcase = 2    # Select the test case
 log_freq = 10   # Log frequency
 
@@ -297,6 +307,7 @@ cd(@__DIR__)
 
 x = [dx * i for i in 0:nx-1]
 den = Array{Float64}(undef, nx)
+entropy = Array{Float64}(undef, nx)
 vel = Array{Float64, 2}(undef, 3, nx)
 stress = Array{Float64, 3}(undef, 3, 3, nx)
 for i in 1:nx
@@ -308,6 +319,7 @@ for i in 1:nx
             stress[j, k, i] = sigma[k, j]
         end
     end
+    entropy[i] = Entropy(e_int, Invariants(Finger(F)))
 end
 
 plot(x, den)
@@ -320,6 +332,8 @@ for i in 1:3
         savefig("elastic/stress_$(i)$(j).png")
     end
 end
+plot(x, entropy)
+savefig("elastic/entropy.png")
 
 println("Done!")
 
