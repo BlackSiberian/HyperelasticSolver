@@ -227,6 +227,14 @@ function InitialCondition(testcase::Int)
     return Q
 end
 
+function ReadData(filename::String)
+    data = readlines(filename)
+    t = parse(Float64, data[1])
+    Q = Array{Float64}(undef, 13, nx)
+    # TODO: ReadData()
+    return Q
+end
+
 testcase = 2    # Select the test case
 log_freq = 10   # Log frequency
 
@@ -250,13 +258,19 @@ dx = X / nx # Coordinate step
 cd(@__DIR__)                     # Go to the directory where this file is
 ispath("data") || mkpath("data") # Make the data folder if it does not exist
 cd("data")                       # Go to the data folder
-foreach(rm, readdir())           # Remove all files in the folder            
+if ("final.dat" in readdir())
+    foreach(rm, readdir())       # Remove all files in the folder
+    global nstep = 0             # Initilization of step counter
+    global t = 0.0               # Initilization of time
+    # Creating a 2-dimension solution array
+    global Q0 = InitialCondition(testcase) # Apply initial conditions to the solution array
+else 
+    # Find the last file
+    last_file = sort(readdir()[1:end-1], by = x -> parse(Int, split(x, ".")[1]))[end]
+    global nstep = parse(Int, split(last_file, ".")[1]) # Initilization of step counter
+    t, Q0 = ReadData(last_file)                         # Read the last file
+end 
 
-# Creating a 2-dimension solution array
-Q0 = InitialCondition(testcase) # Apply initial conditions to the solution array
-
-t = 0.0     # Initilization of time
-nstep = 0   # Initilization of step counter
 while t < T
     # Computing the time step using CFL condition
     lambda = 0

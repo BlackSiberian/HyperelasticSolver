@@ -11,8 +11,8 @@ def cons2Prim(Q: np.array):
     den = density(Q)
     vel = Q[0:3] / den
     F = FQ / den
-    E = Q[12] / den
-    return den, vel, F, E
+    e_int = Q[12] / den - 0.5 * np.dot(vel, vel)
+    return den, vel, F, e_int
 
 script_path = os.path.abspath(__file__)
 script_dir = os.path.dirname(script_path)
@@ -32,9 +32,9 @@ for datafile in os.listdir(datapath):
     den = np.zeros(len(Q))
     vel = np.zeros((len(Q), 3))
     F = np.zeros((len(Q), 3, 3))
-    E = np.zeros(len(Q))
+    e_int = np.zeros(len(Q))
     for i in range(len(Q)):
-        den[i], vel[i], F[i], E[i] = cons2Prim(Q[i])
+        den[i], vel[i], F[i], e_int[i] = cons2Prim(Q[i])
     X = np.linspace(0, 1, len(Q))
 
     plt.figure(figsize=(10, 10))
