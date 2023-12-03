@@ -227,48 +227,58 @@ function InitialCondition(testcase::Int)
     return Q
 end
 
+# Reads the data file
 function ReadData(filename::String)
     data = readlines(filename)
     t = parse(Float64, data[1])
+    nx = length(data) - 1
     Q = Array{Float64}(undef, 13, nx)
-    # TODO: ReadData()
-    return Q
+    for (line, i) in zip(data[2:end], 1:nx)
+        Q[:, i] = parse.(Float64, split(line))
+    end
+    return t, Q, nx
 end
 
-testcase = 2    # Select the test case
-log_freq = 10   # Log frequency
+# Initilization of the problem parameters and constants from the config file
+function Initialize()
+    global nstep = 0             # Initilization of step counter
+    global t = 0.0               # Initilization of time
+    data = readlines(joinpath(@__DIR__, "init.config")) # Read the config file
+    filter!(line -> line != "" && line[1] != '[', data) # Remove empty lines and comments
+    # Read the constants
+    global rho0 = parse(Float64, split(data[1])[3])
+    global c0 = parse(Float64, split(data[2])[3])
+    global b0 = parse(Float64, split(data[3])[3])
+    global cv = parse(Float64, split(data[4])[3])
+    global T0 = parse(Float64, split(data[5])[3])
+    global alpha = parse(Float64, split(data[6])[3])
+    global beta = parse(Float64, split(data[7])[3])
+    global gamma = parse(Float64, split(data[8])[3])
+    # Read the parameters
+    testcase = parse(Int, split(data[9])[3])
+    global log_freq = parse(Int, split(data[10])[3])
+    global X = parse(Float64, split(data[11])[3])
+    global T = parse(Float64, split(data[12])[3])
+    global cu = parse(Float64, split(data[13])[3])
+    global nx = parse(Int, split(data[14])[3])
 
-rho0 = 8.93 # Initial density [g/cm^3]
-c0 = 4.6    # Speed of sound [km/s]
-cv = 3.9e-4 # Heat capacity [kJ/(g*K)]
-T0 = 300    # Initial temperature [K]
-b0 = 2.1    # Speed of the shear wave [km/s]
-alpha = 1.0 # Non-linear
-beta = 3.0  # characteristic
-gamma = 2.0 # constants
+    global dx = X / nx # Coordinate step
+    # Creating a 2-dimension solution array
+    global Q0 = InitialCondition(testcase) # Apply initial conditions to the solution array
+end
 
-X = 1.0     # Coordinate boundary [m]
-T = 0.06     # Time boundary [s]
-
-nx = 500    # Number of steps on dimension coordinate
-cu = 0.6    # Courant-Friedrichs-Levy number
-
-dx = X / nx # Coordinate step
+Initialize()
 
 cd(@__DIR__)                     # Go to the directory where this file is
 ispath("data") || mkpath("data") # Make the data folder if it does not exist
 cd("data")                       # Go to the data folder
-if ("final.dat" in readdir())
+if ("final.dat" in readdir() || readdir() == [])
     foreach(rm, readdir())       # Remove all files in the folder
-    global nstep = 0             # Initilization of step counter
-    global t = 0.0               # Initilization of time
-    # Creating a 2-dimension solution array
-    global Q0 = InitialCondition(testcase) # Apply initial conditions to the solution array
 else 
     # Find the last file
     last_file = sort(readdir()[1:end-1], by = x -> parse(Int, split(x, ".")[1]))[end]
     global nstep = parse(Int, split(last_file, ".")[1]) # Initilization of step counter
-    t, Q0 = ReadData(last_file)                         # Read the last file
+    global t, Q0, nx = ReadData(last_file)       # Read the last file
 end 
 
 while t < T
@@ -316,8 +326,9 @@ for i in 1:nx
 end
 close(file)
 
-cd(@__DIR__)
 ##### Plotting #####
+cd(@__DIR__)
+ispath("jl_plots") || mkpath("jl_plots")
 
 x = [dx * i for i in 0:nx-1]
 den = Array{Float64}(undef, nx)
@@ -337,17 +348,17 @@ for i in 1:nx
 end
 
 plot(x, den)
-savefig("elastic/density.png")
+savefig("jl_plots/density.png")
 for i in 1:3
     plot(x, vel[i, :])
-    savefig("elastic/velocity_$(i).png")
+    savefig("jl_plots/velocity_$(i).png")
     for j in i:3
         plot(x, stress[i, j, :])
-        savefig("elastic/stress_$(i)$(j).png")
+        savefig("jl_plots/stress_$(i)$(j).png")
     end
 end
 plot(x, entropy)
-savefig("elastic/entropy.png")
+savefig("jl_plots/entropy.png")
 
 println("Done!")
 
