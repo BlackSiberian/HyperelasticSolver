@@ -27,9 +27,10 @@ end
 # Returns the value of the entropy
 # @param e_int is the internal energy
 # @param i is invariants
-function Entropy(e_int, i::Array)
+function Entropy(e_int, G::Array)
     B0 = b0^2
     K0 = c0^2 - (4/3)*b0^2
+    i = Invariants(G)
     S = e_int - 0.5 * B0 * i[3]^(0.5*beta) * (i[1]^2 / 3 - i[2]) - 0.5 * K0 / (alpha^2) * (i[3]^(0.5*alpha) - 1)^2
     S = (S / (cv * T0 * i[3]^(0.5*gamma)) + 1)
     return log(S) * cv
@@ -38,9 +39,21 @@ end
 # Returns the value of the internal energy
 # @param S is entropy
 # @param i is invariants
-function EoS(S, i::Array)
+# function EoS(S, i::Array)
+#     B0 = b0^2
+#     K0 = c0^2 - (4/3)*b0^2
+#     U = 0.5 * K0 / (alpha^2) * (i[3]^(0.5*alpha) - 1)^2 + cv * T0 * i[3]^(0.5*gamma) * (exp(S / cv) - 1)
+#     W = 0.5 * B0 * i[3]^(0.5*beta)*(i[1]^2 / 3 - i[2])
+#     e_int = U + W
+#     return e_int
+# end
+
+function EoS(S, G::Array)
     B0 = b0^2
     K0 = c0^2 - (4/3)*b0^2
+
+    i = Invariants(G)
+
     U = 0.5 * K0 / (alpha^2) * (i[3]^(0.5*alpha) - 1)^2 + cv * T0 * i[3]^(0.5*gamma) * (exp(S / cv) - 1)
     W = 0.5 * B0 * i[3]^(0.5*beta)*(i[1]^2 / 3 - i[2])
     e_int = U + W
@@ -50,25 +63,17 @@ end
 # Returns the triplet of derivatives of the internal energy to the invariants
 # @param e_int is the internal energy
 # @param i is invariants
-function dEoS(e_int, i::Array)
-    S = Entropy(e_int, i)
-    e(i::Array) = EoS(S, i)
-
-    return ForwardDiff.gradient(e, i)
+function dEoS(e_int, G::Array)
+    S = Entropy(e_int, G)
+    e(G::Array) = EoS(S, G)
+    return ForwardDiff.gradient(e, G)
 end
 
 # Returns the stress tensor
 function Stress(den, e_int, F::Array)
     G = Finger(F) 
-    I1, I2, I3 = Invariants(G)
-
-    e1, e2, e3 = dEoS(e_int, [I1, I2, I3])
-    dI1dG = reshape(ForwardDiff.jacobian(Invariants, G)[1, :], 3, 3)
-    dI2dG = reshape(ForwardDiff.jacobian(Invariants, G)[2, :], 3, 3)
-    dI3dG = reshape(ForwardDiff.jacobian(Invariants, G)[3, :], 3, 3)
-
-    # return -2.0 * den .* G * (e1 .* dI1dG(G, I1, I2, I3) + e2 .* dI2dG(G, I1, I2, I3) + e3 .* dI3dG(G, I1, I2, I3))
-    return -2.0 * den .* G * (e1 .* dI1dG + e2 .* dI2dG + e3 .* dI3dG)
+    dedG = reshape(dEoS(e_int, G), 3, 3)
+    return -2.0 * den .* G * dedG
 
 end
 
@@ -87,7 +92,6 @@ function Cons2Prim(Q::Array)
     return [den, vel, F, e_int]
 end
 
-# TODO: Prim2Cons is equivalent to BoundaryCondition
 # Translates primitive variables to conservative variables
 # @param vel is the velocity vector
 # @param F is the deformation gradient tensor
@@ -103,8 +107,7 @@ function Prim2Cons(vel::Array, F::Array, S)
     end
     e_kin = 0.5 * (vel[1]^2 + vel[2]^2 + vel[3]^2)
     G = Finger(F) 
-    i = Invariants(G)
-    E = EoS(S, i) + e_kin
+    E = EoS(S, G) + e_kin
     Q[13] = den * E
     return Q
 end
@@ -293,7 +296,7 @@ for i in 1:nx
             stress[j, k, i] = sigma[k, j]
         end
     end
-    entropy[i] = Entropy(e_int, Invariants(Finger(F)))
+    entropy[i] = Entropy(e_int, Finger(F))
 end
 
 plot(x, den)
