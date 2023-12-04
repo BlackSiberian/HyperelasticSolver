@@ -276,9 +276,9 @@ if ("final.dat" in readdir() || readdir() == [])
     foreach(rm, readdir())       # Remove all files in the folder
 else 
     # Find the last file
-    last_file = sort(readdir()[1:end-1], by = x -> parse(Int, split(x, ".")[1]))[end]
+    last_file = sort(readdir(), by = x -> parse(Int, split(x, ".")[1]))[end]
     global nstep = parse(Int, split(last_file, ".")[1]) # Initilization of step counter
-    global t, Q0, nx = ReadData(last_file)       # Read the last file
+    global t, Q0, nx = ReadData(last_file)              # Read the last file
 end 
 
 while t < T
