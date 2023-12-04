@@ -1,6 +1,7 @@
 using LinearAlgebra
 using Plots
 using Printf
+using ForwardDiff
 
 # Returns the symmetric Finger's tensor 
 Finger(F) = inv(F * transpose(F))
@@ -50,31 +51,25 @@ end
 # @param e_int is the internal energy
 # @param i is invariants
 function dEoS(e_int, i::Array)
-    B0 = b0^2               # Squared speed of the shear wave
-    K0 = c0^2 - (4/3)*b0^2  # Square bulk speed of sound
-    
-    # TODO: Probably implement automatic differentiation
-    e1 = B0 * i[1] * i[3]^(0.5*beta) / 3.0
-    e2 = - 0.5 * B0 * i[3]^(0.5*beta)
-    e3 = 0.5 * K0 / alpha * (i[3]^(0.5*alpha) - 1) * i[3]^(0.5*alpha-1) + 0.25 * beta * B0 * (i[1]^2 / 3 - i[2]) * i[3]^(0.5*beta-1)
-    e3 += 0.5 * gamma * (e_int - 0.5 * B0 * i[3]^(0.5*beta) * (i[1]^2 / 3 - i[2]) - 0.5 * K0 / (alpha^2) * (i[3]^(0.5*alpha) - 1)^2) / i[3]
+    S = Entropy(e_int, i)
+    e(i::Array) = EoS(S, i)
 
-    return [e1, e2, e3]
+    return ForwardDiff.gradient(e, i)
 end
-
-dI1dG(G, I1, I2, I3) = I            # Returns the derivative of I with respect to G
-dI2dG(G, I1, I2, I3) = I1 .* I - G  # @param G is the symmetric tensor
-dI3dG(G, I1, I2, I3) = I3 .* inv(G) # @param I1, I2, I3 are the invariants
 
 # Returns the stress tensor
 function Stress(den, e_int, F::Array)
     G = Finger(F) 
     I1, I2, I3 = Invariants(G)
-    G = Finger(F)
 
     e1, e2, e3 = dEoS(e_int, [I1, I2, I3])
+    dI1dG = reshape(ForwardDiff.jacobian(Invariants, G)[1, :], 3, 3)
+    dI2dG = reshape(ForwardDiff.jacobian(Invariants, G)[2, :], 3, 3)
+    dI3dG = reshape(ForwardDiff.jacobian(Invariants, G)[3, :], 3, 3)
 
-    return -2.0 * den .* G * (e1 .* dI1dG(G, I1, I2, I3) + e2 .* dI2dG(G, I1, I2, I3) + e3 .* dI3dG(G, I1, I2, I3))
+    # return -2.0 * den .* G * (e1 .* dI1dG(G, I1, I2, I3) + e2 .* dI2dG(G, I1, I2, I3) + e3 .* dI3dG(G, I1, I2, I3))
+    return -2.0 * den .* G * (e1 .* dI1dG + e2 .* dI2dG + e3 .* dI3dG)
+
 end
 
 # Translates conservative variables to primitive variables
@@ -113,27 +108,6 @@ function Prim2Cons(vel::Array, F::Array, S)
     Q[13] = den * E
     return Q
 end
-
-# Sets the boundary conditions to the solution
-# @param vel is the velocity vector
-# @param F is the deformation gradient tensor
-# @param S is the entropy
-# function BoundaryCondition(vel::Array, F::Array, S)
-#     Q = Array{Float64}(undef, 13) # Conservative variables vector
-#     den = rho0 / det(F)
-#     for i in 1:3
-#         Q[i] = den * vel[i]
-#         for j in 1:3
-#             Q[3*i + j] = den * F[i, j]
-#         end
-#     end
-#     e_kin = 0.5 * (vel[1]^2 + vel[2]^2 + vel[3]^2)
-#     G = Finger(F) 
-#     i = Invariants(G)
-#     E = EoS(S, i) + e_kin
-#     Q[13] = den * E
-#     return Q
-# end
 
 # Returns the value of the physical flux in Q
 # @param Q is the conservative variables vector
