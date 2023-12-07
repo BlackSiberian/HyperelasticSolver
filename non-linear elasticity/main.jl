@@ -204,8 +204,8 @@ function InitialCondition(testcase::Int)
     return Q
 end
 
-testcase = 2    # Select the test case
-log_freq = 10   # Log frequency
+testcase = 1    # Select the test case
+log_freq = 100  # Log frequency
 
 rho0 = 8.93 # Initial density [g/cm^3]
 c0 = 4.6    # Speed of sound [km/s]
@@ -217,9 +217,9 @@ beta = 3.0  # characteristic
 gamma = 2.0 # constants
 
 X = 1.0     # Coordinate boundary [m]
-T = 0.06     # Time boundary [s]
+T = 0.06    # Time boundary [s]
 
-nx = 500    # Number of steps on dimension coordinate
+nx = 2000   # Number of steps on dimension coordinate
 cu = 0.6    # Courant-Friedrichs-Levy number
 
 dx = X / nx # Coordinate step
@@ -279,38 +279,49 @@ for i in 1:nx
 end
 close(file)
 
+file = open("plot.dat", "w")
+for i in 1:nx
+    den, vel, F, e_int = Cons2Prim(Q0[:, i])
+    sigma = Stress(den, e_int, F)
+    entropy = Entropy(e_int, Finger(F))
+    write(file, "$den\t")
+    foreach(x -> foreach(y -> write(file, "$y\t"), x), [vel, sigma])
+    write(file, "$entropy\n")
+end
+close(file)
+
 cd(@__DIR__)
 ##### Plotting #####
 
-x = [dx * i for i in 0:nx-1]
-den = Array{Float64}(undef, nx)
-entropy = Array{Float64}(undef, nx)
-vel = Array{Float64, 2}(undef, 3, nx)
-stress = Array{Float64, 3}(undef, 3, 3, nx)
-for i in 1:nx
-    Q = Q0[:, i]
-    den[i], vel[:, i], F, e_int = Cons2Prim(Q)
-    local sigma = Stress(den[i], e_int, F)
-    for j in 1:3
-        for k in 1:3
-            stress[j, k, i] = sigma[k, j]
-        end
-    end
-    entropy[i] = Entropy(e_int, Finger(F))
-end
+# x = [dx * i for i in 0:nx-1]
+# den = Array{Float64}(undef, nx)
+# entropy = Array{Float64}(undef, nx)
+# vel = Array{Float64, 2}(undef, 3, nx)
+# stress = Array{Float64, 3}(undef, 3, 3, nx)
+# for i in 1:nx
+#     Q = Q0[:, i]
+#     den[i], vel[:, i], F, e_int = Cons2Prim(Q)
+#     local sigma = Stress(den[i], e_int, F)
+#     for j in 1:3
+#         for k in 1:3
+#             stress[j, k, i] = sigma[k, j]
+#         end
+#     end
+#     entropy[i] = Entropy(e_int, Finger(F))
+# end
 
-plot(x, den)
-savefig("elastic/density.png")
-for i in 1:3
-    plot(x, vel[i, :])
-    savefig("elastic/velocity_$(i).png")
-    for j in i:3
-        plot(x, stress[i, j, :])
-        savefig("elastic/stress_$(i)$(j).png")
-    end
-end
-plot(x, entropy)
-savefig("elastic/entropy.png")
+# plot(x, den)
+# savefig("elastic/density.png")
+# for i in 1:3
+#     plot(x, vel[i, :])
+#     savefig("elastic/velocity_$(i).png")
+#     for j in i:3
+#         plot(x, stress[i, j, :])
+#         savefig("elastic/stress_$(i)$(j).png")
+#     end
+# end
+# plot(x, entropy)
+# savefig("elastic/entropy.png")
 
 println("Done!")
 
