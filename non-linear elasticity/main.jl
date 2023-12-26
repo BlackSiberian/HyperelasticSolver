@@ -207,9 +207,9 @@ end
 testcase = 1    # Select the test case
 log_freq = 100  # Log frequency
 
-rho0 = 8.93 # Initial density [g/cm^3]
+rho0 = 8.9 # Initial density [g/cm^3]
 c0 = 4.6    # Speed of sound [km/s]
-cv = 3.9e-4 # Heat capacity [kJ/(g*K)]
+cv = 4.0e-4 # Heat capacity [kJ/(g*K)]
 T0 = 300    # Initial temperature [K]
 b0 = 2.1    # Speed of the shear wave [km/s]
 alpha = 1.0 # Non-linear
