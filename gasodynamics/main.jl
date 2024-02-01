@@ -88,12 +88,17 @@ p_r = 0.1 # Right boundary pressure
 
 ##### Main part of programm #####
 
+cd(@__DIR__)                     # Go to the directory where this file is
+ispath("data") || mkpath("data") # Make the data folder if it does not exist
+cd("data")                       # Go to the data folder
+foreach(rm, readdir())           # Remove all files in the folder   
+
 X = 1.0 # Coordinate boundary [meters]
 T = 0.2 # Time boundary [seconds]
 
 nx = 2000 # Number of steps on dimension coordinate
 gamma = 1.4 # Polytropic index
-cu = 0.99 # Courant number
+cu = 0.5 # Courant number
 
 dx = X / nx # Coordinate step
 
@@ -128,13 +133,23 @@ while t < T
 end
 
 ##### Plotting #####
-    
+
 x = [dx * i for i in 0:nx-1]
 rho = Q0[1, :]
 u = Q0[2, :] ./ rho
 etot = Q0[3, :]
 eint = etot - 0.5 .* rho .* u.^2
 p = eint .* (gamma - 1)
+
+file = open("final.dat", "w")
+for i in 1:nx
+    write(file, "$(x[i])\t")
+    write(file, "$(rho[i])\t")
+    write(file, "$(u[i])\t")
+    write(file, "$(p[i])\t")  
+    write(file, "$(eint[i])\n")
+end
+close(file)
 
 plot(x, rho)
 savefig("plots/density.png")
