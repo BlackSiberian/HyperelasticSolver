@@ -1,7 +1,7 @@
 #
 # EquationsOfState.jl
 #
-# Equation of state defintions and functions.
+# Equation of state definitions and functions.
 
 module EquationsOfState
 using LinearAlgebra
@@ -30,11 +30,11 @@ abstract type EoS end
 
 # All EoS types has to provide the following methods:
 # Energy computation
-energy(eos::T,S, i)        where {T <: EoS} = error("energy() isnt't implemented for EoS: ", typeof(eos))
-entropy(eos::T, e_int, i) where {T <: EoS} = error("entropy() isnt't implemented for EoS: ", typeof(eos))
-denergy(eos::T, e_int, i) where {T <: EoS} = error("denergy() isnt't implemented for EoS: ", typeof(eos))
-stress(eos::T, e_int, F)  where {T <: EoS} = error("stress() isnt't implemented for EoS: ", typeof(eos))
-density(eos::T, Q::Array) where {T <: EoS} = error("density() isnt't implemented for EoS: ", typeof(eos))
+energy(eos::T,S, i)        where {T <: EoS} = error("energy() isn't implemented for EoS: ", typeof(eos))
+entropy(eos::T, e_int, i) where {T <: EoS} = error("entropy() isn't implemented for EoS: ", typeof(eos))
+denergy(eos::T, e_int, i) where {T <: EoS} = error("denergy() isn't implemented for EoS: ", typeof(eos))
+stress(eos::T, e_int, F)  where {T <: EoS} = error("stress() isn't implemented for EoS: ", typeof(eos))
+density(eos::T, Q::Array) where {T <: EoS} = error("density() isn't implemented for EoS: ", typeof(eos))
     
 # ##############################################################################
 # Barton2009
@@ -55,8 +55,8 @@ struct Barton2009 <: EoS
     beta    # characteristic
     gamma   # constants
 
-    # Secondaty parameters
-    b0sq                      # Formely B0
+    # Secondary parameters
+    b0sq                      # Formerly B0
     k0                        #
 
     # Default constructor
@@ -74,8 +74,8 @@ struct Barton2009 <: EoS
         beta = 3.0  # characteristic
         gamma = 2.0 # constants
         
-        # Secondaty parameters
-        b0sq = b0^2              # Formely B0
+        # Secondary parameters
+        b0sq = b0^2              # Formerly B0
         k0 = c0^2 - (4/3)*b0^2
         
         return new(rho0, c0, cv, t0, b0, alpha, beta, gamma, b0sq, k0)
@@ -152,7 +152,7 @@ end
 
 """
     Returns stress tensor.
-    TODO: Remove computations if invariats from here, 
+    TODO: Remove computations if invariants from here, 
           pass only precomputed invariants.
     TODO: Pass only F, since den can be extracted form EoS type
 """
@@ -188,7 +188,7 @@ end
 
 
 # ##############################################################################
-# Since there are only few eqiation of of states and material (~10) supposed
+# Since there are only few equation of of states and material (~10) supposed
 # to be used, ---  define the corresponding EoS functions here just once.
 
 eos_barton2009 = Barton2009()
@@ -199,7 +199,7 @@ density(Q::Array)            = density(eos_barton2009, Q)
 stress(den, e_int, F::Array) = stress(eos_barton2009, den, e_int, F::Array)
 
 
-# Для других матриелов --- инициалзируем тип другим наобором коснтант,
+# Для других материалов --- инициализируем тип другим набором констант,
 # нужно дописать конструктор --- как в типе, только со списком аргументов.
 #     eos_barton_2009_fe = Barton2009(...)
 #
@@ -215,9 +215,9 @@ stress(den, e_int, F::Array) = stress(eos_barton2009, den, e_int, F::Array)
 #
 #     Это плохое решение --- например, нельзя выбрать все варианты
 #     УрС, какие есть для меди, например, --- но пока так.
-#     Более првильно параметризовать еще одним типом для материала.
+#     Более правильно параметризовать еще одним типом для материала.
 
-# Для многофазной задачи --- сразу писать через частичное вычиление
+# Для многофазной задачи --- сразу писать через частичное вычисление
 # в массив УрС для фаз.
 #
 
@@ -226,7 +226,7 @@ stress(den, e_int, F::Array) = stress(eos_barton2009, den, e_int, F::Array)
     See paper for parameters description.
 """
 struct Hank2016 <: EoS 
-    # Primary paramenters
+    # Primary parameters
     rho0        # Initial density [g/cm^3]
     mu          # Shear modulus [Pa]
     gamma       # Characteristic

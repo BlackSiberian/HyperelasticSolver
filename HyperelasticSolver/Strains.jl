@@ -8,7 +8,7 @@ using LinearAlgebra
 export finger, invariants, di1dg, di2dg, di3dg
 
 
-# TODO: Сделать типы для мер деформаций, нужно в hyuperelasticity.jl и eos.jl.
+# TODO: Сделать типы для мер деформаций, нужно в hyperelasticity.jl и eos.jl.
 
 
 # Теперь:
@@ -38,7 +38,7 @@ end
 
 """
     Returns the triplet of symmetric tensor invariants.
-    @param G is an arbitrary symmetric tensor represeted as 3-by-3 array.
+    @param G is an arbitrary symmetric tensor represented as 3-by-3 array.
 """
 function invariants(g::Array{<:Any,2})
     i1 = tr(g)
@@ -52,7 +52,7 @@ end
     Returns the triplet of symmetric tensor invariants.
     @param G is an arbitrary symmetric tensor represented as 1-by-9
     vector.
-    TODO: Внутри можно вызывать предыдущий метод, --- нолучше
+    TODO: Внутри можно вызывать предыдущий метод, --- но лучше
           переписать эта без LinearAlgebra.
 """
 function invariants(g::Array{<:Any,1})
