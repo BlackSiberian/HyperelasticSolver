@@ -249,12 +249,14 @@ end # struct Hank2016 <: EoS
     @param S is entropy
     @param i is invariants
 """
-function energy(eos::Hank2016, den, pres, i::Array{<:Any,1})
+function energy(eos::Hank2016, den, pres, G::Array{<:Any,2})
     rho0 = eos.rho0
     mu = eos.mu
     gamma = eos.gamma
     a = eos.a
     pres_inf = eos.pres_inf
+
+    i = invariants(G)
 
     j = [i[1] / i[3]^(1/3), (i[1]^2 - 2 * i[2]) / i[3]^(2/3)]
 
@@ -279,12 +281,11 @@ function pressure(eos::Hank2016, den, e_int, i::Array{<:Any,1})
     return pres
 end
 
-function stress(eos::Hank2016, den, pressure, Q::Array{<:Any, 1})::Array{<:Any, 2}
-    A = Q[6:14]
-    G = finger(inv(reshape(A, (3, 3))))
+function stress(eos::Hank2016, den, pressure, distortion::Array{<:Any, 1})::Array{<:Any, 1}
+    G = finger(inv(reshape(distortion, (3, 3))))
     
     e(G::Array) = energy(eos, den, pressure, G)
-    dedG = ForwardDiff.gradient(e, G)
+    dedG = reshape(ForwardDiff.gradient(e, G), (3, 3))
     stress = -2.0 * den .* G * dedG
     return reshape(stress, length(stress)) 
 end

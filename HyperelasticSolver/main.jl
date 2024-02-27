@@ -35,12 +35,14 @@ using Logging, LoggingExtras
 # и в импортируемых модулях.
 include("./Strains.jl");
 include("./EquationsOfState.jl")
-include("./Hyperelasticity.jl")
+# include("./Hyperelasticity.jl")
+include("./HyperelasticityMPh.jl")
 include("./NumFluxes.jl");
 
 # Только то, что нужно в main.jl
-using .EquationsOfState: density, stress, finger, invariants, entropy, Barton2009
-using .Hyperelasticity: prim2cons, cons2prim, initial_states, postproc_arrays
+using .EquationsOfState: Barton2009, Hank2016, EoS
+# using .Hyperelasticity: prim2cons, cons2prim, initial_states, postproc_arrays
+using .HyperelasticityMPh: initial_states, postproc_arrays
 using .NumFluxes: lxf
 
 
@@ -50,10 +52,10 @@ using .NumFluxes: lxf
     @param F is the numerical flux method
     @param lambda is the ratio of the spatial mesh stepsize to the temporal meshstep size
 """
-function update_cell(Q::Array{<:Any,2}, flux_num::Function, lambda)
+function update_cell(Q::Array{<:Any,2}, flux_num::Function, lambda, eos::T) where {T <: EoS}
     Q_l, Q, Q_r = Q[:, 1], Q[:, 2], Q[:, 3]
-    F_l = flux_num(Q_l, Q, lambda)
-    F_r = flux_num(Q, Q_r, lambda)
+    F_l = flux_num(eos, Q_l, Q, lambda)
+    F_r = flux_num(eos, Q, Q_r, lambda)
     return Q - 1.0 / lambda * (F_r - F_l)
 end
 
@@ -66,8 +68,10 @@ end
 
 # Выносим сюда, в одно место, постепенно, все основные параметры расчета.
 # Потом завернуть в структуру?
-eos = Barton2009()              # EoS
-dname = "./barton_data/"        # directory name -- directory where data files are saved
+# eos = Barton2009()              # EoS
+# dname = "./barton_data/"        # directory name -- directory where data files are saved
+eos = Hank2016()
+dname = "./hank_data/"
 
 # ---
 # cd(@__DIR__)
@@ -86,7 +90,7 @@ get_fname(nstep) = @sprintf("sol_%06i.dat", nstep) # Padded with zeros
     Save solution array to file
     fname    : File name
     time     : Time value.
-    Q        : Solution array [13] x [ncells]
+    Q        : Solution array [15] x [ncells]
 """
 function save_data(fname, time, Q)
     io = open(fname, "w")
@@ -117,7 +121,7 @@ end
     Эта фунция ничего не знает про физику, но знает про сетку.    
 """
 function initial_condition(Ql,Qr,nx)
-    Q = Array{Float64}(undef, 13, nx)
+    Q = Array{Float64}(undef, 30, nx)
     for i in 1:nx
         if (i-1) * dx < 0.5 * X
             Q[:, i] = Ql
@@ -129,7 +133,7 @@ function initial_condition(Ql,Qr,nx)
 end
 
 testcase = 2    # Select the test case
-Ql, Qr = initial_states(eos, 2)
+Ql, Qr = initial_states(eos, testcase)
 
 log_freq = 10   # Log frequency
 
@@ -160,8 +164,9 @@ while t < T
     lambda = 0
     for i in 1:nx
         Q = Q0[:, i]
-        local den = density(Q[4:12])
-        lambda = max(abs(Q0[1, i]) / den + 5.0, lambda) # TODO: replace 5 with max eigenvalue
+        # local den = density(Q[4:12])
+        # lambda = max(abs(Q0[1, i]) / den + 5.0, lambda) # TODO: replace 5 with max eigenvalue
+        lambda = 5.0
     end
     
     global dt = cfl * dx / lambda    
@@ -173,7 +178,7 @@ while t < T
     Q1[:, begin] = Q0[:, begin]
     Q1[:, end] = Q0[:, end]
     for i in 2:nx-1
-        Q1[:, i] = update_cell(Q0[:, i-1:i+1],lxf, dx/dt)
+        Q1[:, i] = update_cell(Q0[:, i-1:i+1], lxf, dx/dt, eos)
     end
 
     global Q0 = copy(Q1)
@@ -224,7 +229,9 @@ end  # while t < T
 #     hyperelasticity_postproc.jl
 #     hyperelasticitymph_postproc.jl
 #    
-include("hyperelasticity_postproc.jl")    
+# include("hyperelasticity_postproc.jl")    
+
+include("hyperelasticitymph_postproc.jl")
 
 with_logger(logger) do
     @info @sprintf("Done!")
