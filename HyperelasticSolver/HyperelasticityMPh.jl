@@ -220,8 +220,8 @@ function postproc_arrays(eos, Q0)
     vel = Array{Float64}(undef, 3, nph, nx)
     A = Array{Float64}(undef, 9, nph, nx)
     
-    for i in 1:size(Q0,2)
-        P = cons2prim_mph(eos, Q0[:, i])
+    for (i, Q) in enumerate(eachcol(Q0))
+        P = cons2prim_mph(eos, Q)
 
         alpha[:, i] = P[begin:15:end]
         true_den[:, i] = P[begin+1:15:end]
