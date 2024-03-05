@@ -1,4 +1,7 @@
 .vscode
 *.png
 *.dat
-nonlinear_elasticity
+*.bak
+*.old
+*_data/
+*.log
