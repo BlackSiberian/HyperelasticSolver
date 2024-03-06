@@ -7,28 +7,43 @@ module Strains
 
 using LinearAlgebra: inv, tr, det, I
 
-export finger, invariants, di1dg, di2dg, di3dg
+export finger, invariants#, di1dg, di2dg, di3dg
 
 # TODO: Сделать типы для мер деформаций, нужно в hyperelasticity.jl и eos.jl.
 
 # finger(f::Array{<:Any,2})::Array{<:Any,2} = inv(f * transpose(f))
 
+# """
+#     finger(f::Array{<:Any,1})::Array{<:Any,1}
+
+# Returns the symmetric Finger's tensor
+
+# # Arguments
+
+# - `f`: a gradient deformations tensor represented as 1-by-9 vector.
+# """
+# function finger(f::Array{<:Any,1})::Array{<:Any,1}
+#     f = reshape(f, (3, 3))
+#     g = inv(f * transpose(f))
+#     g = reshape(g, length(g))
+#     return g
+# end
+
 """
-    finger(f::Array{<:Any,1})::Array{<:Any,1}
+    finger(a::Array{<:Any,1})::Array{<:Any,1}
 
 Returns the symmetric Finger's tensor
 
 # Arguments
 
-- `f`: a gradient deformations tensor represented as 1-by-9 vector.
+- `a`: a distortion tensor represented as 1-by-9 vector.
 """
-function finger(f::Array{<:Any,1})::Array{<:Any,1}
-    f = reshape(f, (3, 3))
-    g = inv(f * transpose(f))
+function finger(a::Array{<:Any,1})::Array{<:Any,1}
+    a = reshape(a, (3, 3))
+    g = a * transpose(a)
     g = reshape(g, length(g))
     return g
 end
-
 
 # """
 #     Returns the triplet of symmetric tensor invariants.

@@ -7,9 +7,9 @@ module EquationsOfState
 
 using LinearAlgebra: det, inv
 using ForwardDiff: gradient
-using .Strains: finger, invariants#, di1dg, di2dg, di3dg
+using ..Strains: finger, invariants#, di1dg, di2dg, di3dg
 
-export energy, entropy, density, denergy, stress, density, Barton2009, EoS
+export energy, entropy, stress, Barton2009, EoS
 
 
 # ##############################################################################
@@ -108,10 +108,14 @@ function energy(eos::Barton2009, S, G::Array{<:Any,1})
 end
 
 """
-    Returns the value of the entropy
-    @param eos::Barton2009 is EoS parameter type 
-    @param e_int is the internal energy
-    @param i is invariants
+    entropy(eos::Barton2009, e_int, G::Array{<:Any,1})
+
+Returns the value of the internal energy for Barton2009.
+
+# Arguments
+- `eos::Barton2009`: the equation of state using in the model  
+- `e_int`: an internal energy
+- `G`: a Finger tensor
 """
 function entropy(eos::Barton2009, e_int, G::Array{<:Any,1})
     b0sq  = eos.b0sq 
@@ -137,9 +141,11 @@ end
 """
 function stress(eos::Barton2009, den, e_int, F::Array{<:Any,1})::Array{<:Any,1}
     G = finger(F)
-    e(G::Array) = energy(eos, entropy(eos, e_int, G), G)
+    S = entropy(eos, e_int, G)
+    # e(G::Array) = energy(eos, entropy(eos, e_int, G), G)
+e(G::Array) = energy(eos, S, G)
 
-    dedG = ForwardDiff.gradient(e, G)
+    dedG = gradient(e, G)
     
     G = reshape(G, (3, 3))
     dedG = reshape(dedG, (3, 3))
@@ -152,7 +158,7 @@ end
 # Здесь Q --- одномерный массив.
 """
     Returns density computed from conservative variables for GRP model.
-    Actual input is \$\rho\tn{F}\$\.
+    Actual input is \$\rho\tn{F}\$.
     TODO: Make Finer type and the function 
           to accept only Finger tenors and not others!
 """
@@ -168,12 +174,12 @@ end
 # Since there are only few equation of of states and material (~10) supposed
 # to be used, ---  define the corresponding EoS functions here just once.
 
-eos_barton2009 = Barton2009()
-energy(S,i)                  = energy(eos_barton2009,S,i)
-entropy(e_int, i)            = entropy(eos_barton2009,e_int, i)
-denergy(e_int, i)            = denergy(eos_barton2009, e_int, i)
-density(Q::Array)            = density(eos_barton2009, Q)
-stress(den, e_int, F::Array) = stress(eos_barton2009, den, e_int, F::Array)
+# eos_barton2009 = Barton2009()
+# energy(S,i)                  = energy(eos_barton2009,S,i)
+# entropy(e_int, i)            = entropy(eos_barton2009,e_int, i)
+# denergy(e_int, i)            = denergy(eos_barton2009, e_int, i)
+# density(Q::Array)            = density(eos_barton2009, Q)
+# stress(den, e_int, F::Array) = stress(eos_barton2009, den, e_int, F::Array)
 
 
 # Для других материалов --- инициализируем тип другим набором констант,

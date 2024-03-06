@@ -1,6 +1,7 @@
 using LinearAlgebra
 using Plots, LaTeXStrings
 using Printf
+using ForwardDiff
 
 # Logging in terminal and file
 # https://julialogging.github.io/how-to/tee/#Send-messages-to-multiple-locations
@@ -42,7 +43,7 @@ include("./NumFluxes.jl");
 # Только то, что нужно в main.jl
 using .EquationsOfState: Barton2009, Hank2016, EoS
 # using .Hyperelasticity: prim2cons, cons2prim, initial_states, postproc_arrays
-using .HyperelasticityMPh: initial_states, postproc_arrays
+using .HyperelasticityMPh: initial_states, postproc_arrays, cons2prim_mph
 using .NumFluxes: lxf
 
 
@@ -68,10 +69,10 @@ end
 
 # Выносим сюда, в одно место, постепенно, все основные параметры расчета.
 # Потом завернуть в структуру?
-# eos = Barton2009()              # EoS
-# dname = "./barton_data/"        # directory name -- directory where data files are saved
-eos = Hank2016()
-dname = "./hank_data/"
+eos = Barton2009()              # EoS
+dname = "./barton_data/"        # directory name -- directory where data files are saved
+# eos = Hank2016()
+# dname = "./hank_data/"
 
 # ---
 # cd(@__DIR__)
@@ -97,7 +98,9 @@ function save_data(fname, time, Q)
     write(io, "$t\n")
     nx = size(Q)[2]
     for i in 1:nx
-        write(io, join(Q[:, i], "\t"), "\n")
+        P = cons2prim_mph(eos, Q[:, i])
+        # write(io, join(Q[:, i], "\t"), "\n")
+        write(io, join(P, "\t"), "\n")
     end
     close(io)
 end
@@ -166,7 +169,7 @@ while t < T
         Q = Q0[:, i]
         # local den = density(Q[4:12])
         # lambda = max(abs(Q0[1, i]) / den + 5.0, lambda) # TODO: replace 5 with max eigenvalue
-        lambda = 5.0
+        lambda = 5000.0
     end
     
     global dt = cfl * dx / lambda    
