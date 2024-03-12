@@ -32,14 +32,10 @@ export finger, invariants#, di1dg, di2dg, di3dg
 """
     finger(a::Array{<:Any,1})::Array{<:Any,1}
 
-Returns the symmetric Finger's tensor
-
-# Arguments
-
-- `a`: a distortion tensor represented as 1-by-9 vector.
+Computes the symmetric Finger's tensor for a distortion tensor
 """
 function finger(a::Array{<:Any,1})::Array{<:Any,1}
-    a = reshape(a, (3, 3))
+    a = inv(reshape(a, (3, 3)))
     g = a * transpose(a)
     g = reshape(g, length(g))
     return g
@@ -60,11 +56,7 @@ end
 """
     invariants(g::Array{<:Any,1})::Array{<:Any,1}
 
-Returns the triplet of symmetric tensor invariants.
-
-# Arguments 
-
-- `G`: an arbitrary symmetric tensor represented as 1-by-9 vector.
+Returns the triplet of invariants for a Finger's symmetric tensor
 """
 function invariants(g::Array{<:Any,1})::Array{<:Any,1}
     g = reshape(g, (3, 3))

@@ -26,10 +26,39 @@ export energy, entropy, stress, Barton2009, EoS
 abstract type EoS end
 
 # All EoS types has to provide the following methods:
-energy(eos::T, S, G::Array{<:Any,1})      where {T <: EoS} = error("energy() isn't implemented for EoS: ", typeof(eos))
+"""
+    energy(eos::T, S, G::Array{<:Any,1}) where {T <: EoS}
+
+Computes the value of the internal energy for `eos` equation of state
+
+- `S` : an entropy
+- `G` : a Finger's tensor
+"""
+energy(eos::T, S, G::Array{<:Any,1}) where {T <: EoS} = error("energy() isn't implemented for EoS: ", typeof(eos))
+
+"""
+    entropy(eos::eos, e_int, G::Array{<:Any,1}) where {T <: EoS}
+
+Computes the value of the internal energy for `eos` equation of state
+ 
+- `e_int` : an internal energy
+- `G` : a Finger's tensor
+"""
 entropy(eos::T, e_int, G::Array{<:Any,1}) where {T <: EoS} = error("entropy() isn't implemented for EoS: ", typeof(eos))
-stress(eos::T, e_int, F::Array{<:Any,1})  where {T <: EoS} = error("stress() isn't implemented for EoS: ", typeof(eos))
-density(eos::T, Q::Array{<:Any,1})        where {T <: EoS} = error("density() isn't implemented for EoS: ", typeof(eos))
+
+"""
+    stress(eos::T, e_int, F::Array{<:Any,1}) where {T <: EoS}
+    
+Computes stress tensor for `eos` equation of state.
+
+- `den` : a density
+- `e_int` : an internal energy
+- `F` : a gradient deformations tensor
+"""
+stress(eos::T, den, e_int, F::Array{<:Any,1}) where {T <: EoS} = error("stress() isn't implemented for EoS: ", typeof(eos))
+
+# Deprecated function
+density(eos::T, Q::Array{<:Any,1}) where {T <: EoS} = error("density() isn't implemented for EoS: ", typeof(eos))
     
 # ##############################################################################
 # Barton2009
@@ -77,16 +106,6 @@ struct Barton2009 <: EoS
     end
 end # struct Barton2009 <: EoS
 
-"""
-    energy(eos::Barton2009, S, G::Array{<:Any,1})
-
-Returns the value of the internal energy for Barton2009.
-
-# Arguments
-- `eos::Barton2009`: the equation of state using in the model  
-- `S`: an entropy
-- `G`: a Finger tensor
-"""
 function energy(eos::Barton2009, S, G::Array{<:Any,1})
     b0sq  = eos.b0sq 
     k0    = eos.k0
@@ -107,16 +126,6 @@ function energy(eos::Barton2009, S, G::Array{<:Any,1})
     return e_int
 end
 
-"""
-    entropy(eos::Barton2009, e_int, G::Array{<:Any,1})
-
-Returns the value of the internal energy for Barton2009.
-
-# Arguments
-- `eos::Barton2009`: the equation of state using in the model  
-- `e_int`: an internal energy
-- `G`: a Finger tensor
-"""
 function entropy(eos::Barton2009, e_int, G::Array{<:Any,1})
     b0sq  = eos.b0sq 
     k0    = eos.k0
@@ -133,17 +142,15 @@ function entropy(eos::Barton2009, e_int, G::Array{<:Any,1})
     return log(S) * cv
 end
 
-"""
-    Returns stress tensor.
-    TODO: Remove computations if invariants from here, 
-          pass only precomputed invariants.
-    TODO: Pass only F, since den can be extracted form EoS type
-"""
+# TODO: Remove computations if invariants from here, 
+#       and pass only precomputed invariants.
+# TODO: Pass only F, since den can be extracted form EoS type
+
 function stress(eos::Barton2009, den, e_int, F::Array{<:Any,1})::Array{<:Any,1}
     G = finger(F)
     S = entropy(eos, e_int, G)
     # e(G::Array) = energy(eos, entropy(eos, e_int, G), G)
-e(G::Array) = energy(eos, S, G)
+    e(G::Array) = energy(eos, S, G)
 
     dedG = gradient(e, G)
     
@@ -154,11 +161,11 @@ e(G::Array) = energy(eos, S, G)
     return reshape(stress, length(stress)) 
 end
 
-
+# Deprecated function
 # Здесь Q --- одномерный массив.
 """
     Returns density computed from conservative variables for GRP model.
-    Actual input is \$\rho\tn{F}\$.
+    Actual input is ``\\rho \\tn{F}``.
     TODO: Make Finer type and the function 
           to accept only Finger tenors and not others!
 """
@@ -226,12 +233,6 @@ struct Hank2016 <: EoS
     end
 end # struct Hank2016 <: EoS
 
-"""
-    Returns the value of the internal energy
-    @param eos::Hank2016 is EoS parameter type 
-    @param S is entropy
-    @param i is invariants
-"""
 function energy(eos::Hank2016, den, pres, G::Array{<:Any,2})
     rho0 = eos.rho0
     mu = eos.mu
