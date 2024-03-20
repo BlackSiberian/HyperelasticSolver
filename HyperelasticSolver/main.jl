@@ -11,7 +11,7 @@ include("./Strains.jl");
 include("./EquationsOfState.jl")
 # include("./Hyperelasticity.jl")
 include("./HyperelasticityMPh.jl")
-include("./NumFluxes.jl");
+include("./NumFluxes.jl")
 
 # Только то, что нужно в main.jl
 using .EquationsOfState: Barton2009, Hank2016, EoS
@@ -42,9 +42,11 @@ Save the solution array to a `fname` file at `time`.
 """
 function save_data(fname, time, Q::Array{<:Any,2})
     io = open(fname, "w")
-    write(io, "$t\n")
+    # write(io, "$t\n")
     nx = size(Q)[2]
+    write(io, "a1\tr1\tu11\tu21\tu31\tS1\tF111\tF211\tF311\tF121\tF221\tF321\tF131\tF231\tF331\ta2\tr2\tu12\tu22\tu32\tS2\tF112\tF212\tF312\tF122\tF222\tF322\tF132\tF232\tF332", "\n")
     for i in 1:nx
+        # println(Q[:, i])
         P = cons2prim_mph(eos, Q[:, i])
         write(io, join(P, "\t"), "\n")
         # write(io, join(Q[:, i], "\t"), "\n")
@@ -88,7 +90,7 @@ dname = mkpath(dname)
 foreach(rm, readdir(dname, join=true) ) # Remove all files in the directory
 @printf("Cleaning data directory  %s\n", dname)
 
-get_fname(nstep) = @sprintf("sol_%06i.dat", nstep) # Padded with zeros
+get_fname(nstep) = @sprintf("sol_%06i.csv", nstep) # Padded with zeros
 
 
 # ---
@@ -109,7 +111,7 @@ end
 testcase = 2    # Select the test case
 Ql, Qr = initial_states(eos, testcase)
 
-log_freq = 10   # Log frequency
+log_freq = 1   # Log frequency
 
 
 X = 1.0     # Coordinate boundary [m]
@@ -131,6 +133,7 @@ nstep = 0   # Initilization of timestep counter
 fname = joinpath(dname, get_fname(nstep))
 save_data(fname, t, Q0)
 
+
 # ##############################################################################
 # Timestepping
 while t < T
@@ -140,7 +143,8 @@ while t < T
         Q = Q0[:, i]
         # local den = density(Q[4:12])
         # lambda = max(abs(Q0[1, i]) / den + 5.0, lambda) # TODO: replace 5 with max eigenvalue
-        lambda = max(abs(Q[3]) / Q[2] + 5.0, abs(Q[17]) / Q[16] + 5.0, lambda)
+        # lambda = max(abs(Q[3]) / Q[2] + 5.0, abs(Q[18]) / Q[17] + 5.0, lambda)
+        lambda = max(lambda, (abs.(Q[3:15:end] ./ Q[2:15:end]) .+ 5.0)...)
     end
     
     global dt = cfl * dx / lambda    

@@ -75,7 +75,7 @@ function prim2cons_mph(eos::T, P::Array{<:Any, 1}) where {T<:EoS}
         # G = finger(distortion)
         G = finger(def_grad)
         e_int = energy(eos, entropy, G)
-        e_kin = sum(vel) / 2
+        e_kin = sum(vel .^ 2) / 2
         e_total = e_int + e_kin
     
         Q[1] = frac
@@ -108,10 +108,10 @@ function cons2prim_mph(eos::T, Q::Array{<:Any, 1}) where {T<:EoS}
         true_den = den / frac
         vel = Q[3:5] / den
         e_total = Q[6] / den
-        e_kin = sum(vel) / 2
+        e_kin = sum(vel .^ 2) / 2
         e_int = e_total - e_kin
         def_grad = Q[7:15] / den
-    
+        
         # G = finger(inv(reshape(distortion, (3, 3))))
         # G = finger(distortion)
         G = finger(def_grad)
@@ -141,31 +141,38 @@ Computes the physical flux for multiphase hyperelasticity with `eos` equation of
 function flux_mph(eos::T, Q::Array{<:Any,1}) where {T<:EoS}
     ph = Tuple(Q[i:i+15-1] for i in 1:15:length(Q))   
     
-    function flux(eos::T, Q::Array{<:Any,1}) where {T<:EoS}
-        frac = Q[1]
-        den = Q[2]
-        true_den = den / frac
-        vel = Q[3:5] / den
-        e_total = Q[6] / den
-        e_kin = sum(vel) / 2
-        e_int = e_total - e_kin
-        def_grad = Q[7:15] / den
-        
-        # strs = stress(eos, true_den, e_int, distortion)
-        strs = stress(eos, true_den, e_int, def_grad)
-    
-        flux = similar(Q)
-    
-        flux[1] = 0
-        flux[2] = den * vel[1]
-        flux[3:5] = den * vel * vel[1] - strs[1:3]
-        flux[6] = den * vel[1] * e_total - sum(vel .* strs[begin:3:end])
-        flux[7:15] = den * (def_grad * vel[1] - reshape(def_grad[1:3] * transpose(vel), 9))
-        
-        return flux
-    end
     F = vcat([flux(eos, Q) for Q in ph]...)
     return F
+end
+
+function flux(eos::T, Q::Array{<:Any,1}) where {T<:EoS}
+    frac = Q[1]
+    den = Q[2]
+
+    # FQ = reshape(Q[7:15], 3, 3)   
+    # den = sqrt(det(FQ) / 8.93)
+
+    true_den = den / frac
+    vel = Q[3:5] / den
+    e_total = Q[6] / den
+    e_kin = sum(vel .^ 2) / 2
+    e_int = e_total - e_kin
+    def_grad = Q[7:15] / den
+    
+    # strs = stress(eos, true_den, e_int, distortion)
+    strs = stress(eos, true_den, e_int, def_grad)
+
+    flux = similar(Q)
+
+    flux[1] = 0
+    flux[2] = den * vel[1]
+    flux[3:5] = den * vel[1] * vel - strs[begin:3:end]
+    flux[6] = den * vel[1] * e_total - sum(vel .* strs[begin:3:end])
+    # flux[7:15] = den * (def_grad * vel[1] - reshape(def_grad[begin:3:end] * transpose(vel), 9))
+    # flux[7:15] = den .* (vel[1] .* def_grad - (def_grad[begin:3:end] * transpose(vel))[:])
+    flux[7:15] = den .* (vel[1] .* def_grad - (vel * transpose(def_grad[begin:3:end]))[:])
+    
+    return flux
 end
 
 """
@@ -218,30 +225,80 @@ function initial_states(eos::T, testcase::Int) where {T <: EoS}
     # alpha_l_1 = alpha_l_2 = 0.5
     # alpha_r_1 = alpha_r_2 = 0.5
 
-    alpha_l_1 = alpha_r_1 = 0.999
-    alpha_l_2 = alpha_r_2 = 0.001
+    
+    # alpha_l_1 = alpha_r_1 = 0.999
+    # alpha_l_2 = alpha_r_2 = 0.001
+    
+    # u_l_1 = u_l_2 = [2.0, 0.0, 0.1] # [km/s]
+
+    # F_l = [ 1.0     0.0     0.0;
+    #         -0.01   0.95    0.02;
+    #         -0.015  0.0     0.9]
+    # F_l_1 = F_l_2 = reshape(F_l, length(F_l))
+    
+    # S_l_1 = S_l_2 = 0.0 # [kJ/(g*K)]
+    
+    
+    # u_r_1 = u_r_2 = [0.0, -0.03, -0.01] # [km/s]
+
+    # F_r = [ 1.0     0.0     0.0;
+    #         0.015   0.95    0.0;
+    #         -0.01   0.0     0.9]
+    # F_r_1 = F_r_2 = reshape(F_r, length(F_r))
+    
+    # S_r_1 = S_r_2 = 0.0 # [kJ/(g*K)]
+
+    # den_l_1 = den_l_2 = 8.93 / det(F_l)   
+    # den_r_1 = den_r_2 = 8.93 / det(F_r)
+    
+
+    
+    # alpha_l_1 = alpha_r_1 = 0.5
+    # alpha_l_2 = alpha_r_2 = 0.5
+    
+    # u_l_1 = u_l_2 = [1.0, 0.0, 0.0] # [km/s]
+    
+    # F_l = [ 1.0     0.0     0.0;
+    #         0.0     1.0     0.0;
+    #         0.0     0.0     1.0 ]
+    # F_l_1 = F_l_2 = reshape(F_l, length(F_l))
+    
+    # S_l_1 = S_l_2 = 10.0 # [kJ/(g*K)]
+    
+    
+    # u_r_1 = u_r_2 = [1.0, 0.0, 0.0] # [km/s]
+
+    # F_r = [ 1.0     0.0     0.0;
+    #         0.0     1.0     0.0;
+    #         0.0     0.0     1.0 ]
+    # F_r_1 = F_r_2 = reshape(F_r, length(F_r))
+    
+    # S_r_1 = S_r_2 = 1.0 # [kJ/(g*K)]
+
+    # den_l_1 = den_l_2 = 8.93 # Maybe that isn't correct  
+    # den_r_1 = den_r_2 = 8.93 # Maybe that isn't correct
     
     u_l_1 = u_l_2 = [2.0, 0.0, 0.1] # [km/s]
-    
-    F_l = [ 1.0    -0.01  -0.015;
-    0.0     0.95    0.0;
-    0.0     0.02    0.9 ]
-    F_l_1 = F_l_2 = reshape(F_l, length(F_l))
-    
+    F_l = [ 1.0     0.0   0.0 ;
+            -0.01   0.95  0.02; 
+            -0.015  0.0   0.9 ]
+    F_l_1 = F_l_2 = F_l
+    # F_l_1 = F_l_2 = reshape(F_l, length(F_l))
     S_l_1 = S_l_2 = 0.0 # [kJ/(g*K)]
     
-    
     u_r_1 = u_r_2 = [0.0, -0.03, -0.01] # [km/s]
-
-    F_r = [ 1.0     0.015  -0.01;
-            0.0     0.95    0.0;
-            0.0     0.0     0.9 ]
-    F_r_1 = F_r_2 = reshape(F_r, length(F_r))
-    
+    F_r = [ 1.0     0.0     0.0;
+            0.015   0.95    0.0;
+            -0.01   0.0     0.9]
+    F_r_1 = F_r_2 = F_r
+    # F_r_1 = F_r_2 = reshape(F_r, length(F_r))
     S_r_1 = S_r_2 = 0.0 # [kJ/(g*K)]
 
-    den_l_1 = den_l_2 = 8.93 / det(F_l) # Maybe that isn't correct  
-    den_r_1 = den_r_2 = 8.93 / det(F_r) # Maybe that isn't correct
+    alpha_l_1 = alpha_l_2 = 0.5
+    alpha_r_1 = alpha_r_2 = 0.5
+
+    den_l_1 = den_l_2 = 8.93 / det(F_l)
+    den_r_1 = den_r_2 = 8.93 / det(F_r)
 
 
     Pl = [alpha_l_1, den_l_1, u_l_1..., S_l_1, F_l_1..., 

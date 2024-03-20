@@ -35,9 +35,9 @@ export finger, invariants#, di1dg, di2dg, di3dg
 Computes the symmetric Finger's tensor for a distortion tensor
 """
 function finger(a::Array{<:Any,1})::Array{<:Any,1}
-    a = inv(reshape(a, (3, 3)))
-    g = a * transpose(a)
-    g = reshape(g, length(g))
+    a = reshape(a, (3, 3))
+    g = inv(a * transpose(a))[:]
+    # g = reshape(g, length(g))
     return g
 end
 

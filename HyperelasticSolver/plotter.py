@@ -9,7 +9,7 @@ os.chdir(script_dir)
 datapath = '../barton_data/'
 plotpath = '../plots/'
 # datafile = 'plot.dat'
-datafile = 'sol_000000.dat'
+datafile = 'sol_000020.dat'
 
 Q = np.loadtxt(datapath + datafile, delimiter='\t', skiprows=1)
 
