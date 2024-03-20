@@ -1,17 +1,15 @@
 #
 # EquationsOfState.jl
 #
-# Equation of state defintions and functions.
+# Equation of state definitions and functions.
 
 module EquationsOfState
-using LinearAlgebra
-using ForwardDiff
 
-include("./Strains.jl");
-using .Strains: finger, invariants, di1dg, di2dg, di3dg
+using LinearAlgebra: det, inv
+using ForwardDiff: gradient
+using ..Strains: finger, invariants#, di1dg, di2dg, di3dg
 
-
-export energy, entropy, density, denergy, stress, density, Barton2009, EoS
+export energy, entropy, stress, Barton2009, EoS
 
 
 # ##############################################################################
@@ -27,14 +25,40 @@ export energy, entropy, density, denergy, stress, density, Barton2009, EoS
 # Abstract EoS type
 abstract type EoS end
 
-
 # All EoS types has to provide the following methods:
-# Energy computation
-energy(eos::T,S, i)        where {T <: EoS} = error("energy() isnt't implemented for EoS: ", typeof(eos))
-entropy(eos::T, e_int, i) where {T <: EoS} = error("entropy() isnt't implemented for EoS: ", typeof(eos))
-denergy(eos::T, e_int, i) where {T <: EoS} = error("denergy() isnt't implemented for EoS: ", typeof(eos))
-stress(eos::T, e_int, F)  where {T <: EoS} = error("stress() isnt't implemented for EoS: ", typeof(eos))
-density(eos::T, Q::Array) where {T <: EoS} = error("density() isnt't implemented for EoS: ", typeof(eos))
+"""
+    energy(eos::T, S, G::Array{<:Any,1}) where {T <: EoS}
+
+Computes the value of the internal energy for `eos` equation of state
+
+- `S` : an entropy
+- `G` : a Finger's tensor
+"""
+energy(eos::T, S, G::Array{<:Any,1}) where {T <: EoS} = error("energy() isn't implemented for EoS: ", typeof(eos))
+
+"""
+    entropy(eos::eos, e_int, G::Array{<:Any,1}) where {T <: EoS}
+
+Computes the value of the internal energy for `eos` equation of state
+ 
+- `e_int` : an internal energy
+- `G` : a Finger's tensor
+"""
+entropy(eos::T, e_int, G::Array{<:Any,1}) where {T <: EoS} = error("entropy() isn't implemented for EoS: ", typeof(eos))
+
+"""
+    stress(eos::T, e_int, F::Array{<:Any,1}) where {T <: EoS}
+    
+Computes stress tensor for `eos` equation of state.
+
+- `den` : a density
+- `e_int` : an internal energy
+- `F` : a gradient deformations tensor
+"""
+stress(eos::T, den, e_int, F::Array{<:Any,1}) where {T <: EoS} = error("stress() isn't implemented for EoS: ", typeof(eos))
+
+# Deprecated function
+density(eos::T, Q::Array{<:Any,1}) where {T <: EoS} = error("density() isn't implemented for EoS: ", typeof(eos))
     
 # ##############################################################################
 # Barton2009
@@ -55,8 +79,8 @@ struct Barton2009 <: EoS
     beta    # characteristic
     gamma   # constants
 
-    # Secondaty parameters
-    b0sq                      # Formely B0
+    # Secondary parameters
+    b0sq                      # Formerly B0
     k0                        #
 
     # Default constructor
@@ -74,21 +98,15 @@ struct Barton2009 <: EoS
         beta = 3.0  # characteristic
         gamma = 2.0 # constants
         
-        # Secondaty parameters
-        b0sq = b0^2              # Formely B0
+        # Secondary parameters
+        b0sq = b0^2              # Formerly B0
         k0 = c0^2 - (4/3)*b0^2
         
         return new(rho0, c0, cv, t0, b0, alpha, beta, gamma, b0sq, k0)
     end
 end # struct Barton2009 <: EoS
 
-"""
-    Returns the value of the internal energy for Barton2009
-    @param eos::Barton2009 is EoS parameter type
-    @param S is entropy
-    @param i is invariants
-"""
-function energy(eos::Barton2009, S, i::Array{<:Any,1})
+function energy(eos::Barton2009, S, G::Array{<:Any,1})
     b0sq  = eos.b0sq 
     k0    = eos.k0
     alpha = eos.alpha
@@ -96,7 +114,9 @@ function energy(eos::Barton2009, S, i::Array{<:Any,1})
     gamma = eos.gamma
     cv    = eos.cv
     t0    = eos.t0
-    
+
+    i = invariants(G)
+
     U = ( 0.5 * k0 / (alpha^2) * (i[3]^(0.5*alpha) - 1.0)^2 
           + cv * t0 * i[3]^(0.5*gamma) * (exp(S / cv) - 1.0)
           )
@@ -106,13 +126,7 @@ function energy(eos::Barton2009, S, i::Array{<:Any,1})
     return e_int
 end
 
-"""
-    Returns the value of the entropy
-    @param eos::Barton2009 is EoS parameter type 
-    @param e_int is the internal energy
-    @param i is invariants
-"""
-function entropy(eos::Barton2009, e_int, i::Array)
+function entropy(eos::Barton2009, e_int, G::Array{<:Any,1})
     b0sq  = eos.b0sq 
     k0    = eos.k0
     alpha = eos.alpha
@@ -120,86 +134,62 @@ function entropy(eos::Barton2009, e_int, i::Array)
     gamma = eos.gamma
     cv    = eos.cv
     t0    = eos.t0
+
+    i = invariants(G)
 
     S = e_int - 0.5 * b0sq * i[3]^(0.5*beta) * (i[1]^2 / 3 - i[2]) - 0.5 * k0 / (alpha^2) * (i[3]^(0.5*alpha) - 1)^2
     S = (S / (cv * t0 * i[3]^(0.5*gamma)) + 1)
     return log(S) * cv
 end
 
-"""
-    Returns the triplet of derivatives of the internal energy to the invariants
-    @param e_int is the internal energy
-    @param i is invariants
-"""
-function denergy(eos::Barton2009, e_int, i::Array{<:Any,1})
-    b0sq  = eos.b0sq 
-    k0    = eos.k0
-    alpha = eos.alpha
-    beta  = eos.beta
-    gamma = eos.gamma
-    cv    = eos.cv
-    t0    = eos.t0
-    
-    # TODO: Probably implement automatic differentiation
-    e1 = b0sq * i[1] * i[3]^(0.5*beta) / 3.0
-    e2 = - 0.5 * b0sq * i[3]^(0.5*beta)
-    e3 = 0.5 * k0 / alpha * (i[3]^(0.5*alpha) - 1) * i[3]^(0.5*alpha-1) + 0.25 * beta * b0sq * (i[1]^2 / 3 - i[2]) * i[3]^(0.5*beta-1)
-    e3 += 0.5 * gamma * (e_int - 0.5 * b0sq * i[3]^(0.5*beta) * (i[1]^2 / 3 - i[2]) - 0.5 * k0 / (alpha^2) * (i[3]^(0.5*alpha) - 1)^2) / i[3]
+# TODO: Remove computations if invariants from here, 
+#       and pass only precomputed invariants.
+# TODO: Pass only F, since den can be extracted form EoS type
 
-    return [e1, e2, e3]
-end
-
-
-"""
-    Returns stress tensor.
-    TODO: Remove computations if invariats from here, 
-          pass only precomputed invariants.
-    TODO: Pass only F, since den can be extracted form EoS type
-"""
-function stress(eos::Barton2009, den, e_int, F::Array{<:Any,2})
-    G = finger(F) 
-    I1, I2, I3 = invariants(G)
+function stress(eos::Barton2009, den, e_int, F::Array{<:Any,1})::Array{<:Any,1}
     G = finger(F)
+    S = entropy(eos, e_int, G)
+    # e(G::Array) = energy(eos, entropy(eos, e_int, G), G)
+    e(G::Array) = energy(eos, S, G)
 
-    e1, e2, e3 = denergy(eos, e_int, [I1, I2, I3])
+    dedG = gradient(e, G)
+    
+    G = reshape(G, (3, 3))
+    dedG = reshape(dedG, (3, 3))
 
-    return -2.0 * den .* G * (e1 .* di1dg(G, I1, I2, I3) + e2 .* di2dg(G, I1, I2, I3) + e3 .* di3dg(G, I1, I2, I3))
+    stress = - 2 * den .* G * dedG
+    return reshape(stress, length(stress)) 
 end
 
-
+# Deprecated function
+# Здесь Q --- одномерный массив.
 """
     Returns density computed from conservative variables for GRP model.
-    Actual input is \$\rho\tn{F}\$.
-
+    Actual input is ``\\rho \\tn{F}``.
     TODO: Make Finer type and the function 
           to accept only Finger tenors and not others!
 """
-# Здесь Q --- одномерный массив.
 function density(eos::Barton2009, Q::Array{<:Any,1})
-    # FQ = [Q[4]  Q[5]  Q[6];     # The part of the vector that
-    #       Q[7]  Q[8]  Q[9];     # corresponds to the deformation gradient
-    #       Q[10] Q[11] Q[12]]
     rho0 = eos.rho0
-    FQ = [ Q[1]  Q[2]  Q[3];     # The part of the vector that
-           Q[4]  Q[5]  Q[6];     # corresponds to the deformation gradient
-           Q[7]  Q[8]  Q[9] ]    
+
+    FQ = reshape(Q[1:9], (3, 3))
     return sqrt(det(FQ) / rho0)
 end
 
 
 # ##############################################################################
-# Since there are only few eqiation of of states and material (~10) supposed
+# Since there are only few equation of of states and material (~10) supposed
 # to be used, ---  define the corresponding EoS functions here just once.
 
-eos_barton2009 = Barton2009()
-energy(S,i)                  = energy(eos_barton2009,S,i)
-entropy(e_int, i)            = entropy(eos_barton2009,e_int, i)
-denergy(e_int, i)            = denergy(eos_barton2009, e_int, i)
-density(Q::Array)            = density(eos_barton2009, Q)
-stress(den, e_int, F::Array) = stress(eos_barton2009, den, e_int, F::Array)
+# eos_barton2009 = Barton2009()
+# energy(S,i)                  = energy(eos_barton2009,S,i)
+# entropy(e_int, i)            = entropy(eos_barton2009,e_int, i)
+# denergy(e_int, i)            = denergy(eos_barton2009, e_int, i)
+# density(Q::Array)            = density(eos_barton2009, Q)
+# stress(den, e_int, F::Array) = stress(eos_barton2009, den, e_int, F::Array)
 
 
-# Для других матриелов --- инициалзируем тип другим наобором коснтант,
+# Для других материалов --- инициализируем тип другим набором констант,
 # нужно дописать конструктор --- как в типе, только со списком аргументов.
 #     eos_barton_2009_fe = Barton2009(...)
 #
@@ -215,9 +205,9 @@ stress(den, e_int, F::Array) = stress(eos_barton2009, den, e_int, F::Array)
 #
 #     Это плохое решение --- например, нельзя выбрать все варианты
 #     УрС, какие есть для меди, например, --- но пока так.
-#     Более првильно параметризовать еще одним типом для материала.
+#     Более правильно параметризовать еще одним типом для материала.
 
-# Для многофазной задачи --- сразу писать через частичное вычиление
+# Для многофазной задачи --- сразу писать через частичное вычисление
 # в массив УрС для фаз.
 #
 
@@ -226,7 +216,7 @@ stress(den, e_int, F::Array) = stress(eos_barton2009, den, e_int, F::Array)
     See paper for parameters description.
 """
 struct Hank2016 <: EoS 
-    # Primary paramenters
+    # Primary parameters
     rho0        # Initial density [g/cm^3]
     mu          # Shear modulus [Pa]
     gamma       # Characteristic
@@ -243,18 +233,14 @@ struct Hank2016 <: EoS
     end
 end # struct Hank2016 <: EoS
 
-"""
-    Returns the value of the internal energy
-    @param eos::Hank2016 is EoS parameter type 
-    @param S is entropy
-    @param i is invariants
-"""
-function energy(eos::Hank2016, den, pres, i::Array{<:Any,1})
+function energy(eos::Hank2016, den, pres, G::Array{<:Any,2})
     rho0 = eos.rho0
     mu = eos.mu
     gamma = eos.gamma
     a = eos.a
     pres_inf = eos.pres_inf
+
+    i = invariants(G)
 
     j = [i[1] / i[3]^(1/3), (i[1]^2 - 2 * i[2]) / i[3]^(2/3)]
 
@@ -279,12 +265,11 @@ function pressure(eos::Hank2016, den, e_int, i::Array{<:Any,1})
     return pres
 end
 
-function stress(eos::Hank2016, den, pressure, Q::Array{<:Any, 1})::Array{<:Any, 2}
-    A = Q[6:14]
-    G = finger(inv(reshape(A, (3, 3))))
+function stress(eos::Hank2016, den, pressure, distortion::Array{<:Any, 1})::Array{<:Any, 1}
+    G = finger(inv(reshape(distortion, (3, 3))))
     
     e(G::Array) = energy(eos, den, pressure, G)
-    dedG = ForwardDiff.gradient(e, G)
+    dedG = reshape(ForwardDiff.gradient(e, G), (3, 3))
     stress = -2.0 * den .* G * dedG
     return reshape(stress, length(stress)) 
 end

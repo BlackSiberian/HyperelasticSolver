@@ -1,4 +1,8 @@
 .vscode
 *.png
 *.dat
-HyperelasticSolver/nonlinear_elasticity
+*.bak
+*.old
+*_data/
+plots/
+*.log

@@ -201,7 +201,7 @@ function postproc_arrays(Q0)
         eint[i] = e_int
     end
 
-    info = ("den", "ent", vel, "strs", "eint", "info")
+    info = ("den", "ent", "vel", "strs", "eint", "info")
     return den, ent, vel, strs, eint, info
 end
 
