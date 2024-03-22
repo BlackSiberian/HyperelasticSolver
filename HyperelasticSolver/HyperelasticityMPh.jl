@@ -160,7 +160,7 @@ function flux(eos::T, Q::Array{<:Any,1}) where {T<:EoS}
     def_grad = Q[7:15] / den
     
     # strs = stress(eos, true_den, e_int, distortion)
-    strs = stress(eos, true_den, e_int, def_grad)
+    strs = stress(eos, den, e_int, def_grad)
 
     flux = similar(Q)
 
