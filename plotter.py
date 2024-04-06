@@ -6,10 +6,10 @@ script_path = os.path.abspath(__file__)
 script_dir = os.path.dirname(script_path)
 
 os.chdir(script_dir)
-datapath = '../barton_data/'
-plotpath = '../plots/'
+datapath = './barton_data/'
+plotpath = './plots/'
 # datafile = 'plot.dat'
-datafile = 'sol_000020.dat'
+datafile = 'sol_000000.csv'
 
 Q = np.loadtxt(datapath + datafile, delimiter='\t', skiprows=1)
 
@@ -21,7 +21,7 @@ Q = np.loadtxt(datapath + datafile, delimiter='\t', skiprows=1)
 
 den = [Q[:, 1], Q[:, 16]]
 vel = [Q[:, 2:5], Q[:, 17:20]]
-entropy = [Q[:, 14], Q[:, 29]] 
+entropy = [Q[:, 5], Q[:, 20]] 
 
 X = np.linspace(0, 1, len(den[0]))
 

@@ -8,7 +8,7 @@ the calculation.
 
 - NumFluxes.jl
 
-Module with different numerical flux functions. 
+Module with different numerical flux functions.
 
 
 - EquationsOfState.jl

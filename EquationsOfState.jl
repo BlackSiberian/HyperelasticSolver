@@ -34,7 +34,7 @@ Computes the value of the internal energy for `eos` equation of state
 - `S` : an entropy
 - `G` : a Finger's tensor
 """
-energy(eos::T, S, G::Array{<:Any,1}) where {T <: EoS} = error("energy() isn't implemented for EoS: ", typeof(eos))
+energy(eos::T, S, G::Array{<:Any,1}) where {T<:EoS} = error("energy() isn't implemented for EoS: ", typeof(eos))
 
 """
     entropy(eos::eos, e_int, G::Array{<:Any,1}) where {T <: EoS}
@@ -44,7 +44,7 @@ Computes the value of the internal energy for `eos` equation of state
 - `e_int` : an internal energy
 - `G` : a Finger's tensor
 """
-entropy(eos::T, e_int, G::Array{<:Any,1}) where {T <: EoS} = error("entropy() isn't implemented for EoS: ", typeof(eos))
+entropy(eos::T, e_int, G::Array{<:Any,1}) where {T<:EoS} = error("entropy() isn't implemented for EoS: ", typeof(eos))
 
 """
     stress(eos::T, e_int, F::Array{<:Any,1}) where {T <: EoS}
@@ -55,11 +55,11 @@ Computes stress tensor for `eos` equation of state.
 - `e_int` : an internal energy
 - `F` : a gradient deformations tensor
 """
-stress(eos::T, den, e_int, F::Array{<:Any,1}) where {T <: EoS} = error("stress() isn't implemented for EoS: ", typeof(eos))
+stress(eos::T, den, e_int, F::Array{<:Any,1}) where {T<:EoS} = error("stress() isn't implemented for EoS: ", typeof(eos))
 
 # Deprecated function
-density(eos::T, Q::Array{<:Any,1}) where {T <: EoS} = error("density() isn't implemented for EoS: ", typeof(eos))
-    
+density(eos::T, Q::Array{<:Any,1}) where {T<:EoS} = error("density() isn't implemented for EoS: ", typeof(eos))
+
 # ##############################################################################
 # Barton2009
 # ##############################################################################
@@ -69,77 +69,78 @@ density(eos::T, Q::Array{<:Any,1}) where {T <: EoS} = error("density() isn't imp
     See paper for parameters description.
 """
 struct Barton2009 <: EoS
+  # Primary parameters
+  rho0    # Initial density [g/cm^3]
+  c0      # Speed of sound [km/s]
+  cv      # Heat capacity [kJ/(g*K)]
+  t0      # Initial temperature [K]
+  b0      # Speed of the shear wave [km/s]
+  alpha   # Non-linear
+  beta    # characteristic
+  gamma   # constants
+
+  # Secondary parameters
+  b0sq                      # Formerly B0
+  k0                        #
+
+  # Default constructor
+  # TODO: Implement specific constructors, see
+  #       https://discourse.julialang.org/t/automatic-keyword-argument-constructor/36573
+  #       to define only keyword arguments
+  function Barton2009()
     # Primary parameters
-    rho0    # Initial density [g/cm^3]
-    c0      # Speed of sound [km/s]
-    cv      # Heat capacity [kJ/(g*K)]
-    t0      # Initial temperature [K]
-    b0      # Speed of the shear wave [km/s]
-    alpha   # Non-linear
-    beta    # characteristic
-    gamma   # constants
+    rho0 = 8.93 # Initial density [g/cm^3]
+    c0 = 4.6    # Speed of sound [km/s]
+    cv = 3.9e-4 # Heat capacity [kJ/(g*K)]
+    t0 = 300    # Initial temperature [K]
+    b0 = 2.1    # Speed of the shear wave [km/s]
+    alpha = 1.0 # Non-linear
+    beta = 3.0  # characteristic
+    gamma = 2.0 # constants
 
     # Secondary parameters
-    b0sq                      # Formerly B0
-    k0                        #
+    b0sq = b0^2              # Formerly B0
+    k0 = c0^2 - (4 / 3) * b0^2
 
-    # Default constructor
-    # TODO: Implement specific constructors, see
-    #       https://discourse.julialang.org/t/automatic-keyword-argument-constructor/36573
-    #       to define only keyword arguments
-    function Barton2009()
-        # Primary parameters
-        rho0 = 8.93 # Initial density [g/cm^3]
-        c0 = 4.6    # Speed of sound [km/s]
-        cv = 3.9e-4 # Heat capacity [kJ/(g*K)]
-        t0 = 300    # Initial temperature [K]
-        b0 = 2.1    # Speed of the shear wave [km/s]
-        alpha = 1.0 # Non-linear
-        beta = 3.0  # characteristic
-        gamma = 2.0 # constants
-        
-        # Secondary parameters
-        b0sq = b0^2              # Formerly B0
-        k0 = c0^2 - (4/3)*b0^2
-        
-        return new(rho0, c0, cv, t0, b0, alpha, beta, gamma, b0sq, k0)
-    end
+    return new(rho0, c0, cv, t0, b0, alpha, beta, gamma, b0sq, k0)
+  end
 end # struct Barton2009 <: EoS
 
 function energy(eos::Barton2009, S, G::Array{<:Any,1})
-    b0sq  = eos.b0sq 
-    k0    = eos.k0
-    alpha = eos.alpha
-    beta  = eos.beta
-    gamma = eos.gamma
-    cv    = eos.cv
-    t0    = eos.t0
+  b0sq = eos.b0sq
+  k0 = eos.k0
+  alpha = eos.alpha
+  beta = eos.beta
+  gamma = eos.gamma
+  cv = eos.cv
+  t0 = eos.t0
 
-    i = invariants(G)
+  i = invariants(G)
 
-    U = ( 0.5 * k0 / (alpha^2) * (i[3]^(0.5*alpha) - 1.0)^2 
-          + cv * t0 * i[3]^(0.5*gamma) * (exp(S / cv) - 1.0)
-          )
-    
-    W = 0.5 * b0sq * i[3]^(0.5*beta)*(i[1]^2 / 3.0 - i[2])
-    e_int = U + W
-    return e_int
+  U = (0.5 * k0 / (alpha^2) * (i[3]^(0.5 * alpha) - 1.0)^2
+       +
+       cv * t0 * i[3]^(0.5 * gamma) * (exp(S / cv) - 1.0)
+  )
+
+  W = 0.5 * b0sq * i[3]^(0.5 * beta) * (i[1]^2 / 3.0 - i[2])
+  e_int = U + W
+  return e_int
 end
 
 function entropy(eos::Barton2009, e_int, G::Array{<:Any,1})
-    b0sq  = eos.b0sq 
-    k0    = eos.k0
-    alpha = eos.alpha
-    beta  = eos.beta
-    gamma = eos.gamma
-    cv    = eos.cv
-    t0    = eos.t0
+  b0sq = eos.b0sq
+  k0 = eos.k0
+  alpha = eos.alpha
+  beta = eos.beta
+  gamma = eos.gamma
+  cv = eos.cv
+  t0 = eos.t0
 
-    i = invariants(G)
+  i = invariants(G)
 
-    S = e_int - 0.5 * b0sq * i[3]^(0.5*beta) * (i[1]^2 / 3 - i[2]) - 0.5 * k0 / (alpha^2) * (i[3]^(0.5*alpha) - 1)^2
-    S = (S / (cv * t0 * i[3]^(0.5*gamma)) + 1)
-    return log(S) * cv
+  S = e_int - 0.5 * b0sq * i[3]^(0.5 * beta) * (i[1]^2 / 3 - i[2]) - 0.5 * k0 / (alpha^2) * (i[3]^(0.5 * alpha) - 1)^2
+  S = (S / (cv * t0 * i[3]^(0.5 * gamma)) + 1)
+  return log(S) * cv
 end
 
 # TODO: Remove computations if invariants from here, 
@@ -147,18 +148,19 @@ end
 # TODO: Pass only F, since den can be extracted form EoS type
 
 function stress(eos::Barton2009, den, e_int, F::Array{<:Any,1})::Array{<:Any,1}
-    G = finger(F)
-    S = entropy(eos, e_int, G)
-    # e(G::Array) = energy(eos, entropy(eos, e_int, G), G)
-    e(G::Array) = energy(eos, S, G)
+  G = finger(F)
+  S = entropy(eos, e_int, G)
+  # e(G::Array) = energy(eos, entropy(eos, e_int, G), G)
+  # e(G::Array) = energy(eos, S, G)
 
-    dedG = gradient(e, G)
-    
-    G = reshape(G, (3, 3))
-    dedG = reshape(dedG, (3, 3))
+  # dedG = gradient(e, G)
+  dedG = gradient(G -> energy(eos, S, G), G)
 
-    stress = - 2 * den .* G * dedG
-    return reshape(stress, length(stress)) 
+  G = reshape(G, (3, 3))
+  dedG = reshape(dedG, (3, 3))
+
+  stress = -2 * den .* G * dedG
+  return reshape(stress, length(stress))
 end
 
 # Deprecated function
@@ -170,10 +172,10 @@ end
           to accept only Finger tenors and not others!
 """
 function density(eos::Barton2009, Q::Array{<:Any,1})
-    rho0 = eos.rho0
+  rho0 = eos.rho0
 
-    FQ = reshape(Q[1:9], (3, 3))
-    return sqrt(det(FQ) / rho0)
+  FQ = reshape(Q[1:9], (3, 3))
+  return sqrt(det(FQ) / rho0)
 end
 
 
@@ -215,63 +217,63 @@ end
     Hank2016 EoS
     See paper for parameters description.
 """
-struct Hank2016 <: EoS 
-    # Primary parameters
-    rho0        # Initial density [g/cm^3]
-    mu          # Shear modulus [Pa]
-    gamma       # Characteristic
-    pres_inf    # constants
-    a           # EoS parameter
+struct Hank2016 <: EoS
+  # Primary parameters
+  rho0        # Initial density [g/cm^3]
+  mu          # Shear modulus [Pa]
+  gamma       # Characteristic
+  pres_inf    # constants
+  a           # EoS parameter
 
-    function Hank2016()
-        rho0 = 2.7 # Initial density [g/cm^3]
-        mu = 26e9  # Shear modulus [Pa]
-        gamma = 3.4 
-        pres_inf = 21.5e9
-        a = 0.5        
-        return new(rho0, mu, gamma, pres_inf, a)
-    end
+  function Hank2016()
+    rho0 = 2.7 # Initial density [g/cm^3]
+    mu = 26e9  # Shear modulus [Pa]
+    gamma = 3.4
+    pres_inf = 21.5e9
+    a = 0.5
+    return new(rho0, mu, gamma, pres_inf, a)
+  end
 end # struct Hank2016 <: EoS
 
 function energy(eos::Hank2016, den, pres, G::Array{<:Any,2})
-    rho0 = eos.rho0
-    mu = eos.mu
-    gamma = eos.gamma
-    a = eos.a
-    pres_inf = eos.pres_inf
+  rho0 = eos.rho0
+  mu = eos.mu
+  gamma = eos.gamma
+  a = eos.a
+  pres_inf = eos.pres_inf
 
-    i = invariants(G)
+  i = invariants(G)
 
-    j = [i[1] / i[3]^(1/3), (i[1]^2 - 2 * i[2]) / i[3]^(2/3)]
+  j = [i[1] / i[3]^(1 / 3), (i[1]^2 - 2 * i[2]) / i[3]^(2 / 3)]
 
-    e_el = mu / (4 * rho0) * ((1 - 2 * a) / 3 * j[1]^2 + a * j[2] + 3 * (a - 1)) 
-    e_h = (pres + gamma * pres_inf) / (den * (gamma - 1)) 
-    e_int = e_el + e_h
-    return e_int
+  e_el = mu / (4 * rho0) * ((1 - 2 * a) / 3 * j[1]^2 + a * j[2] + 3 * (a - 1))
+  e_h = (pres + gamma * pres_inf) / (den * (gamma - 1))
+  e_int = e_el + e_h
+  return e_int
 end
 
 function pressure(eos::Hank2016, den, e_int, i::Array{<:Any,1})
-    rho0 = eos.rho0
-    mu = eos.mu
-    gamma = eos.gamma
-    a = eos.a
-    pres_inf = eos.pres_inf
+  rho0 = eos.rho0
+  mu = eos.mu
+  gamma = eos.gamma
+  a = eos.a
+  pres_inf = eos.pres_inf
 
-    j = [i[1] / i[3]^(1/3), (i[1]^2 - 2 * i[2]) / i[3]^(2/3)]
+  j = [i[1] / i[3]^(1 / 3), (i[1]^2 - 2 * i[2]) / i[3]^(2 / 3)]
 
-    e_el = mu / (4 * rho0) * ((1 - 2 * a) / 3 * j[1]^2 + a * j[2] + 3 * (a - 1)) 
-    e_h = e_int - e_el
-    pres = e_h * (gamma - 1) * den - gamma * pres_inf
-    return pres
+  e_el = mu / (4 * rho0) * ((1 - 2 * a) / 3 * j[1]^2 + a * j[2] + 3 * (a - 1))
+  e_h = e_int - e_el
+  pres = e_h * (gamma - 1) * den - gamma * pres_inf
+  return pres
 end
 
-function stress(eos::Hank2016, den, pressure, distortion::Array{<:Any, 1})::Array{<:Any, 1}
-    G = finger(inv(reshape(distortion, (3, 3))))
-    
-    e(G::Array) = energy(eos, den, pressure, G)
-    dedG = reshape(ForwardDiff.gradient(e, G), (3, 3))
-    stress = -2.0 * den .* G * dedG
-    return reshape(stress, length(stress)) 
+function stress(eos::Hank2016, den, pressure, distortion::Array{<:Any,1})::Array{<:Any,1}
+  G = finger(inv(reshape(distortion, (3, 3))))
+
+  e(G::Array) = energy(eos, den, pressure, G)
+  dedG = reshape(gradient(e, G), (3, 3))
+  stress = -2.0 * den .* G * dedG
+  return reshape(stress, length(stress))
 end
 
 eos_hank2016 = Hank2016()
