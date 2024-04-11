@@ -1,8 +1,6 @@
-.vscode
 *.png
-*.dat
+*.csv
 *.bak
-*.old
 *_data/
 plots/
 *.log

@@ -24,6 +24,7 @@ the Lax-Friedrichs method and `eos` equation of state
 function lxf(eos::T, Q_l::Array{<:Any,1}, Q_r::Array{<:Any,1}, lambda) where {T<:EoS}
   # return 0.5 * (flux_mph(eos, Q_l) + flux_mph(eos, Q_r)) - 0.5 * lambda * (Q_r - Q_l)
   # return 0.5 * (flux(Q_l) + flux(Q_r)) - 0.5 * lambda * (Q_r - Q_l)
+  # return 0.5 * (flux_mph(eos, Q_l) + flux_mph(eos, Q_r)) - 0.5 * lambda * (Q_r - Q_l)
 
   path(Q_l, Q_r, s) = Q_l .* (1 - s) + Q_r .* s # define path
 
@@ -49,44 +50,12 @@ function lxf_pathcons(eos::T, Q_l::Array{<:Any,1}, Q_r::Array{<:Any,1}, path::Fu
   # <<Потоки>>, $D^+$ и $D^-$
   dp = (1.0 / 2.0) * flux_path + (1.0 / 2.0) * lambda * (Q_r - Q_l)
   dm = (1.0 / 2.0) * flux_path - (1.0 / 2.0) * lambda * (Q_r - Q_l)
+  dp = (1.0 / 2.0) * flux_path #+ (1.0 / 2.0) * lambda * (Q_r - Q_l)
+  dm = (1.0 / 2.0) * flux_path #- (1.0 / 2.0) * lambda * (Q_r - Q_l)
 
   return dm, dp
 end
-# """
-#     Возвращает численные <<потоки>> для заданного пути.
-#     Обертка --- нужна, чтобы скрыть путь и матрицу как параметр в аргументах.
-#     ul::Vector{Float64} --- левое состояние
-#     ur::Vector{Float64} --- правое состояние
-#     psi                 --- путь, psi(ul::Vector{Float64}, ur::Vector{Float64}, s::Real)::Vector{Float64}
-#     a                   --- Matrix{Float64}
-# """
-# function DefineLxFPCFlux(ul, ur, a, psi, dt, dx)
-#   return (ul, ur) -> LxFPCFlux(ul, ur, a, psi, dt, dx)
-# end
-#
-# """
-#     Вычисляет <<потоки>> для PC варианта потока Лакса-Фридрихса.
-# """
-# function LxFPCFlux(ul, ur, a, psi, dt, dx)
-#   nodes, weights = gausslobatto(5)                       # for [-1,+1] interval
-#   nodes, weights = (nodes .+ 1.0) / 2.0, weights ./ 2.0  # for [0,1] interval
-#
-#   # Path derivative, consider to define globally (?) 
-#   dpsi(ul, ur, s) = derivative(s -> psi(ul, ur, s), s)
-#   uvals = [psi(ul, ur, s) for s in nodes]    # values of matrix in quad. points
-#   dvals = [dpsi(ul, ur, s) for s in nodes]    # values of $\partial\psi/\partia s$ in quad. points
-#   avals = a.(uvals)                           # values of matrix in quad. points
-#
-#   # Интегрируем
-#   flux_psi = sum([weights[i] * avals[i] * dvals[i] for i in 1:length(weights)])
-#
-#   # <<Потоки>>, $D^+$ и $D^-$
-#   dp = (1.0 / 2.0) * flux_psi + (1.0 / 2.0) * dx / dt * (ur - ul)
-#   dm = (1.0 / 2.0) * flux_psi - (1.0 / 2.0) * dx / dt * (ur - ul)
-#
-#   return dm, dp
-# end
-#
+
 end # module NumFluxes
 
 # EOF

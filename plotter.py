@@ -8,24 +8,26 @@ script_dir = os.path.dirname(script_path)
 os.chdir(script_dir)
 datapath = './barton_data/'
 plotpath = './plots/'
-# datafile = 'plot.dat'
-datafile = 'sol_000000.csv'
+# datafile = 'result.csv'
+datafile = 'sol_000001.csv'
 
 Q = np.loadtxt(datapath + datafile, delimiter='\t', skiprows=1)
 
-# alpha = []
-# den = []
-# vel = []
-# distortion = []
-# entropy = []
-
+frac = [Q[:, 0], Q[:, 15]]
 den = [Q[:, 1], Q[:, 16]]
 vel = [Q[:, 2:5], Q[:, 17:20]]
-entropy = [Q[:, 5], Q[:, 20]] 
+entropy = [Q[:, 5], Q[:, 20]]
 
 X = np.linspace(0, 1, len(den[0]))
 
 for p in range(2):
+    plt.plot(X, frac[p])
+    plt.title(f'Fraction {p+1}')
+    plt.grid()
+    plt.xlim(0, 1)
+    plt.savefig(plotpath + f'fraction_{p+1}.png')
+    plt.clf()
+
     plt.plot(X, den[p])
     plt.title(f'Density {p+1}')
     plt.grid()
@@ -47,8 +49,3 @@ for p in range(2):
     plt.xlim(0, 1)
     plt.savefig(plotpath + f'entropy_{p+1}.png')
     plt.clf()
-
-
-
-
-
