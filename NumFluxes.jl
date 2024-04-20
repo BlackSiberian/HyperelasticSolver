@@ -10,6 +10,7 @@ using ..HyperelasticityMPh: flux_mph, noncons_flux
 using ..EquationsOfState: EoS
 using ForwardDiff: derivative
 using FastGaussQuadrature: gausslobatto
+using LinearAlgebra: I
 
 export lxf
 
@@ -22,9 +23,7 @@ the Lax-Friedrichs method and `eos` equation of state
 `lambda` is the value of `Δx/Δt`
 """
 function lxf(eos::T, Q_l::Array{<:Any,1}, Q_r::Array{<:Any,1}, lambda) where {T<:EoS}
-  # return 0.5 * (flux_mph(eos, Q_l) + flux_mph(eos, Q_r)) - 0.5 * lambda * (Q_r - Q_l)
   # return 0.5 * (flux(Q_l) + flux(Q_r)) - 0.5 * lambda * (Q_r - Q_l)
-  # return 0.5 * (flux_mph(eos, Q_l) + flux_mph(eos, Q_r)) - 0.5 * lambda * (Q_r - Q_l)
 
   path(Q_l, Q_r, s) = Q_l .* (1 - s) + Q_r .* s # define path
 
@@ -48,10 +47,14 @@ function lxf_pathcons(eos::T, Q_l::Array{<:Any,1}, Q_r::Array{<:Any,1}, path::Fu
   flux_path = sum([weights[i] * avals[i] * dvals[i] for i in 1:length(weights)])
 
   # <<Потоки>>, $D^+$ и $D^-$
-  dp = (1.0 / 2.0) * flux_path + (1.0 / 2.0) * lambda * (Q_r - Q_l)
-  dm = (1.0 / 2.0) * flux_path - (1.0 / 2.0) * lambda * (Q_r - Q_l)
   dp = (1.0 / 2.0) * flux_path #+ (1.0 / 2.0) * lambda * (Q_r - Q_l)
   dm = (1.0 / 2.0) * flux_path #- (1.0 / 2.0) * lambda * (Q_r - Q_l)
+
+  # aplusvals = [1 / 2 .* (avals[i] + lambda * I) for i in 1:length(avals)]
+  # aminusvals = [1 / 2 .* (avals[i] - lambda * I) for i in 1:length(avals)]
+  #
+  # dp = sum([weights[i] * aplusvals[i] * dvals[i] for i in 1:length(weights)])
+  # dm = sum([weights[i] * aminusvals[i] * dvals[i] for i in 1:length(weights)])
 
   return dm, dp
 end

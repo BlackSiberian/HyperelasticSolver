@@ -13,7 +13,7 @@ include("./NumFluxes.jl")
 # Только то, что нужно в main.jl
 using .EquationsOfState: EoS, Barton2009
 # using .Hyperelasticity: prim2cons, cons2prim, initial_states, postproc_arrays
-using .HyperelasticityMPh: initial_states, cons2prim_mph#, postproc_arrays
+using .HyperelasticityMPh: initial_states, cons2prim_mph, prim2cons_mph#, postproc_arrays
 using .NumFluxes: lxf
 
 
@@ -71,6 +71,20 @@ end
 
 get_filename(step_num) = @sprintf("sol_%06i.csv", step_num) # Padded with zeros
 
+function initial_condition_tanh(eos, Ql, Qr, nx, eps)
+  Q = Array{Float64}(undef, 30, nx)
+  Pl = cons2prim_mph(eos, Ql)
+  Pr = cons2prim_mph(eos, Qr)
+  for i in 1:nx
+    x = (i - 0.5) / nx
+    P = x < 0.5 ? Pl : Pr
+    P[1] = 0.2 / 2 * (tanh(4 * (x - 0.5) / eps) + 1) + 0.4
+    P[16] = 1 - P[1]
+
+    Q[:, i] = prim2cons_mph(eos, P)
+  end
+  return Q
+end
 
 # ##############################################################################
 # ### Main driver ##############################################################
@@ -108,19 +122,20 @@ log_freq = 10   # Log frequency
 X = 1.0     # Coordinate boundary [m]
 T = 0.06    # Time boundary [1e-5 s]
 
-nx = 500    # Number of steps on dimension coordinate
+nx = 2000    # Number of steps on dimension coordinate
 cfl = 0.6   # Courant-Friedrichs-Levy number
 
 dx = X / nx # Coordinate step
 
+eps = 0.2
 
 # Initialize initial conditions
 Ql, Qr = initial_states(eos, testcase)
 Q0 = initial_condition(Ql, Qr, nx)
+# Q0 = initial_condition_tanh(eos, Ql, Qr, nx, eps)
 
 t = 0.0        # Initilization of time
 step_num = 0   # Initilization of timestep counter
-# dt = 0.00001
 
 fname = joinpath(dir_name, get_filename(step_num))
 save_data(fname, Q0)
@@ -147,7 +162,7 @@ while t < T
   Q1 = similar(Q0)
   Q1[:, begin] = Q0[:, begin]
   Q1[:, end] = Q0[:, end]
-  for i in 2:nx-1
+  Threads.@threads for i in 2:nx-1
     Q1[:, i] = update_cell(Q0[:, i-1:i+1], lxf, dx / dt, eos)
   end
 

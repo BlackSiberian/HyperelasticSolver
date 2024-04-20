@@ -179,7 +179,9 @@ function noncons_flux(eos::T, Q::Array{<:Any,1}) where {T<:EoS}
 
   strs = [reshape(stress(eos, den[p], e_int[p], def_grad[p]), 3, 3) for p in 1:nph]
 
-  omega = 1 / 2
+  # Омега должна быть равна нулю, поскольку иначе возникает нефизичный импульс
+  # omega = 1 / 2
+  omega = 0
   k = 1 / 2
   k = [k, 1 - k]
   beta = zeros(2)
@@ -188,18 +190,32 @@ function noncons_flux(eos::T, Q::Array{<:Any,1}) where {T<:EoS}
   S = [entropy(eos, e_int[p], G[p]) for p in 1:nph]
   temp = [derivative(S -> energy(eos, S, G[p]), S[p]) for p in 1:nph]
   vel_i = k[1] .* vel[1] + k[2] .* vel[2]
-  K = [1 / frac[p] * (omega / 3 .* tr(strs[p]) * I + (1 - omega) .* strs[p]) + beta[p] .* I for p in 1:nph]
-  strs_i = (K[1] * k[2] * temp[1] + K[2] * k[1] * temp[1]) / (k[1] * temp[1] + k[2] * temp[2])
-
+  # vel_i = vel[2]
+  # vel_i = frac[1] .* vel[1] + frac[2] .* vel[2]
+  K = [1 / frac[p] .* (omega / 3 .* tr(strs[p]) * I + (1 - omega) .* strs[p]) + beta[p] .* I for p in 1:nph]
+  strs_i = (k[2] * temp[2] .* K[1] + k[1] * temp[1] .* K[2]) / (k[1] * temp[1] + k[2] * temp[2])
+  # strs_i = frac[1] .* K[1] + frac[2] .* K[2]
+  # strs_i = K[1]
 
   B = [zeros(Float64, length(Q[p]), length(Q[p])) for p in 1:nph]
   for p in 1:nph
     B[p][1, 1] = vel_i[1]
+    B[p][3:5, 1] = strs_i[:, 1]
     B[p][6, 1] = sum(strs_i[:, 1] .* vel_i)
-    for i in 0:2
-      B[p][6+3*i.+(1:3), 1] = omega * true_den[p] / 3 * (vel_i[1] - vel[p][1]) .* def_grad[p][3*i.+(1:3)]
+
+    for i in 0:3:8
+      B[p][6+i.+(1:3), 1] = omega * true_den[p] / 3 .* (vel_i[1] - vel[p][1]) .* def_grad[p][i.+(1:3)] + true_den[p] * def_grad[p][i+1] .* vel[p]
     end
-    B[p][7:9, 1] += den[p] * (vel_i[1] - vel[p][1]) .* def_grad[p][1:3]
+    B[p][7:3:15, 1] += (1 - omega) * true_den[p] .* transpose(reshape(def_grad[p], 3, 3)) * (vel_i - vel[p])
+    # for i in 1:3
+    #   B[p][7+(i-1)*3, 1] = (1 - omega) * true_den[p] * sum(def_grad[p][1:3] .* vel[p])
+    # end
+
+    # bad ones
+    # for i in 0:2
+    #   B[p][6+3*i.+(1:3), 1] = omega * true_den[p] / 3 * (vel_i[1] - vel[p][1]) .* def_grad[p][3*i.+(1:3)]
+    # end
+    # B[p][7:9, 1] += den[p] * (vel_i[1] - vel[p][1]) .* def_grad[p][1:3]
   end
 
 
@@ -302,10 +318,10 @@ function initial_states(eos::T, testcase::Int) where {T<:EoS}
     F_r_1 = F_r_2 = F_r
     S_r_1 = S_r_2 = 0.0 # [kJ/(g*K)]
   elseif testcase == 6
-    alpha_l_1 = 0.1
-    alpha_l_2 = 0.9
-    alpha_r_1 = 0.9
-    alpha_r_2 = 0.1
+    alpha_l_1 = 0.4
+    alpha_l_2 = 0.6
+    alpha_r_1 = 0.6
+    alpha_r_2 = 0.4
     den_1 = den_2 = 8.9
 
     u_l_1 = u_l_2 = [2.0, 0.0, 0.1] # [km/s]
@@ -321,23 +337,27 @@ function initial_states(eos::T, testcase::Int) where {T<:EoS}
       -0.01 0.0 0.9]
     F_r_1 = F_r_2 = F_r
     S_r_1 = S_r_2 = 0.0 # [kJ/(g*K)]
+  elseif testcase == 7
+    alpha_l_1 = 0.4
+    alpha_l_2 = 0.6
+    alpha_r_1 = 0.6
+    alpha_r_2 = 0.4
+    den_1 = den_2 = 8.9
+
+    u_l_1 = u_l_2 = [2.0, 0.0, 0.1] # [km/s]
+    F_l = [1.0 0.0 0.0;
+      -0.01 0.95 0.02;
+      -0.015 0.0 0.9]
+    F_l_1 = F_l_2 = F_l
+    S_l_1 = S_l_2 = 0.0 # [kJ/(g*K)]
+
+    u_r_1 = u_r_2 = [2.0, 0.0, 0.1] # [km/s]
+    F_r = [1.0 0.0 0.0;
+      -0.01 0.95 0.02;
+      -0.015 0.0 0.9]
+    F_r_1 = F_r_2 = F_r
+    S_r_1 = S_r_2 = 0.0
   else
-    # u_l_1 = u_l_2 = [2.0, 0.0, 0.1] # [km/s]
-    # F_l = [1.0 0.0 0.0;
-    #   -0.01 0.95 0.02;
-    #   -0.015 0.0 0.9]
-    # F_l_1 = F_l_2 = F_l
-    # S_l_1 = S_l_2 = 0.0 # [kJ/(g*K)]
-    #
-    # u_r_1 = u_r_2 = [0.0, -0.03, -0.01] # [km/s]
-    # F_r = [1.0 0.0 0.0;
-    #   0.015 0.95 0.0;
-    #   -0.01 0.0 0.9]
-    # F_r_1 = F_r_2 = F_r
-    # S_r_1 = S_r_2 = 0.0 # [kJ/(g*K)]
-    #
-    # alpha_l_1 = alpha_l_2 = 0.5
-    # alpha_r_1 = alpha_r_2 = 0.5
   end
 
   den_l_1 = den_1 / det(F_l_1)
