@@ -8,8 +8,8 @@ script_dir = os.path.dirname(script_path)
 os.chdir(script_dir)
 datapath = './barton_data/'
 plotpath = './plots/'
-datafile = 'result.csv'
-# datafile = 'sol_000700.csv'
+# datafile = 'result.csv'
+datafile = 'sol_000000.csv'
 
 Q = np.loadtxt(datapath + datafile, delimiter='\t', skiprows=1)
 
@@ -31,7 +31,8 @@ titles = ['Объемная доля', 'Истинная плотность',
           r'Скорость по координате $Y$',
           r'Скорость по координате $Z$', 'Энтропия']
 ylabels = [r'$\alpha$', r'$\rho, г/см^3$', r'$u_x, км/c$',
-           r'$u_y, км/c$', r'$u_z, км/c$', r'$\eta, \,\frac{\text{кДж}}{\text{г} \, \text{К}}$']
+           r'$u_y, км/c$', r'$u_z, км/c$',
+           r'$\eta, \,\frac{\text{кДж}}{\text{г} \, \text{К}}$']
 
 for p in range(2):
     frac_plt[1].plot(X, frac[p], label=f'Фаза {p+1}', color=colors[p])
@@ -54,9 +55,9 @@ for fig, ax in [frac_plt, den_plt, *vel_plt, ent_plt]:
     fig.tight_layout()
     t += 1
 
-vel_plt[1][1].set_yticks(np.arange(-0.06, 0.04, 0.01))
+# vel_plt[1][1].set_yticks(np.arange(-0.06, 0.04, 0.01))
 vel_plt[2][1].set_yticks(np.arange(-0.01, 0.11, 0.01))
-ent_plt[1].set_yticks(np.arange(0.0, 2.5e-4, 2.5e-5))
+# ent_plt[1].set_yticks(np.arange(0.0, 2.5e-4, 2.5e-5))
 
 frac_plt[0].savefig(plotpath + 'fraction.png')
 den_plt[0].savefig(plotpath + 'density.png')

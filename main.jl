@@ -25,7 +25,7 @@ Returns the value of quantity in the cell to the next time layer using
 
 `lambda` is the value of `Δx/Δt`
 """
-function update_cell(Q::Array{<:Any,2}, flux_num::Function, lambda, eos::T) where {T<:EoS}
+function update_cell(Q::Array{<:Any,2}, flux_num::Function, lambda, eos::Tuple{T,T}) where {T<:EoS}
   Q_l, Q, Q_r = Q[:, 1], Q[:, 2], Q[:, 3]
 
   # F_l = flux_num(eos, Q_l, Q, lambda)
@@ -113,7 +113,8 @@ global_logger(logger) # Set logger as global logger
 
 # Выносим сюда, в одно место, постепенно, все основные параметры расчета.
 # Потом завернуть в структуру?
-eos = Barton2009()              # Equation of state
+# Set equation of state for each phase
+eos = (Barton2009(), Barton2009(_rho0=8.93, _c0=6.22, _cv=9.0e-4, _t0=300, _b0=3.16, _alpha=1, _beta=3.577, _gamma=2.088))
 testcase = 6    # Select the test case
 
 log_freq = 10   # Log frequency
@@ -122,7 +123,7 @@ log_freq = 10   # Log frequency
 X = 1.0     # Coordinate boundary [m]
 T = 0.06    # Time boundary [1e-5 s]
 
-nx = 2000    # Number of steps on dimension coordinate
+nx = 500    # Number of steps on dimension coordinate
 cfl = 0.6   # Courant-Friedrichs-Levy number
 
 dx = X / nx # Coordinate step

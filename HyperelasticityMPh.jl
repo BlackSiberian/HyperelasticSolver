@@ -60,8 +60,8 @@ export prim2cons_mph, cons2prim_mph, flux_mph, noncons_flux, initial_states #, p
 Converts primitive variables to conservative variables for multiphase
 hyperelasticity with `eos` equation of state.
 """
-function prim2cons_mph(eos::T, P::Array{<:Any,1}) where {T<:EoS}
-  ph = Tuple(P[i:i+15-1] for i in 1:15:length(P))
+function prim2cons_mph(eos::Tuple{T,T}, P::Array{<:Any,1}) where {T<:EoS}
+  ph = (P[i:i+15-1] for i in 1:15:length(P))
 
   function prim2cons(eos::T, P::Array{<:Any,1}) where {T<:EoS}
     Q = similar(P)
@@ -87,7 +87,7 @@ function prim2cons_mph(eos::T, P::Array{<:Any,1}) where {T<:EoS}
 
     return Q
   end
-  Q = vcat([prim2cons(eos, P) for P in ph]...)
+  Q = vcat([prim2cons(eos[i], P) for (i, P) in enumerate(ph)]...)
   return Q
 end
 
@@ -98,8 +98,8 @@ end
 Converts conservative variables to primitive variables
 for multiphase hyperelasticity with `eos` equation of state.
 """
-function cons2prim_mph(eos::T, Q::Array{<:Any,1}) where {T<:EoS}
-  ph = Tuple(Q[i:i+15-1] for i in 1:15:length(Q))
+function cons2prim_mph(eos::Tuple{T,T}, Q::Array{<:Any,1}) where {T<:EoS}
+  ph = (Q[i:i+15-1] for i in 1:15:length(Q))
 
   function cons2prim(eos::T, Q::Array{<:Any,1}) where {T<:EoS}
     P = similar(Q)
@@ -114,7 +114,6 @@ function cons2prim_mph(eos::T, Q::Array{<:Any,1}) where {T<:EoS}
     def_grad = Q[7:15] / den
 
     G = finger(def_grad)
-    # i = invariants(G)
     ent = entropy(eos, e_int, G)
 
     P[1] = frac
@@ -125,7 +124,7 @@ function cons2prim_mph(eos::T, Q::Array{<:Any,1}) where {T<:EoS}
 
     return P
   end
-  P = vcat([cons2prim(eos, Q) for Q in ph]...)
+  P = vcat([cons2prim(eos[i], Q) for (i, Q) in enumerate(ph)]...)
   return P
 end
 
@@ -135,10 +134,9 @@ end
 
 Computes the physical flux for multiphase hyperelasticity with `eos` equation of state.
 """
-function flux_mph(eos::T, Q::Array{<:Any,1}) where {T<:EoS}
-  ph = Tuple(Q[i:i+15-1] for i in 1:15:length(Q))
-
-  F = vcat([flux(eos, Q) for Q in ph]...)
+function flux_mph(eos::Tuple{T,T}, Q::Array{<:Any,1}) where {T<:EoS}
+  ph = (Q[i:i+15-1] for i in 1:15:length(Q))
+  F = vcat([flux(eos[i], Q) for (i, Q) in enumerate(ph)]...)
   return F
 end
 
@@ -165,7 +163,8 @@ function flux(eos::T, Q::Array{<:Any,1}) where {T<:EoS}
   return flux
 end
 
-function noncons_flux(eos::T, Q::Array{<:Any,1}) where {T<:EoS}
+
+function noncons_flux(eos::Tuple{T,T}, Q::Array{<:Any,1}) where {T<:EoS}
   Q = [Q[p:p+14] for p in 1:15:length(Q)]
   nph = length(Q)
   frac = [Q[p][1] for p in 1:nph]
@@ -177,7 +176,7 @@ function noncons_flux(eos::T, Q::Array{<:Any,1}) where {T<:EoS}
   e_int = e_total - e_kin
   def_grad = [Q[p][7:15] / den[p] for p in 1:nph]
 
-  strs = [reshape(stress(eos, den[p], e_int[p], def_grad[p]), 3, 3) for p in 1:nph]
+  strs = [reshape(stress(eos[p], den[p], e_int[p], def_grad[p]), 3, 3) for p in 1:nph]
 
   # Омега должна быть равна нулю, поскольку иначе возникает нефизичный импульс
   # omega = 1 / 2
@@ -187,8 +186,8 @@ function noncons_flux(eos::T, Q::Array{<:Any,1}) where {T<:EoS}
   beta = zeros(2)
 
   G = [finger(def_grad[p]) for p in 1:nph]
-  S = [entropy(eos, e_int[p], G[p]) for p in 1:nph]
-  temp = [derivative(S -> energy(eos, S, G[p]), S[p]) for p in 1:nph]
+  S = [entropy(eos[p], e_int[p], G[p]) for p in 1:nph]
+  temp = [derivative(S -> energy(eos[p], S, G[p]), S[p]) for p in 1:nph]
   vel_i = k[1] .* vel[1] + k[2] .* vel[2]
   # vel_i = vel[2]
   # vel_i = frac[1] .* vel[1] + frac[2] .* vel[2]
@@ -244,7 +243,7 @@ Sets left and right states for the Riemann problem for multiphase hyperelasticit
 
 'testcase' is the test case number
 """
-function initial_states(eos::T, testcase::Int) where {T<:EoS}
+function initial_states(eos::Tuple{T,T}, testcase::Int) where {T<:EoS}
   if testcase == 1
     alpha_l_1 = alpha_r_1 = 0.5
     alpha_l_2 = alpha_r_2 = 0.5
@@ -374,7 +373,7 @@ function initial_states(eos::T, testcase::Int) where {T<:EoS}
   Qr = prim2cons_mph(eos, Pr)
 
   return Ql, Qr
-end # initial_states(eos::T, testcase::Int) where {T<:EoS}
+end # initial_states(eos::Tuple{T, T}, testcase::Int) where {T<:EoS}
 
 """
     Расчет значений массивов для визуализации.

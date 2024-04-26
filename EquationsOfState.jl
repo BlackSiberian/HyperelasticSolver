@@ -87,16 +87,25 @@ struct Barton2009 <: EoS
   # TODO: Implement specific constructors, see
   #       https://discourse.julialang.org/t/automatic-keyword-argument-constructor/36573
   #       to define only keyword arguments
-  function Barton2009()
+  function Barton2009(; _rho0=8.93, _c0=4.6, _cv=3.9e-4, _t0=300, _b0=2.1, _alpha=1, _beta=3, _gamma=2)
     # Primary parameters
-    rho0 = 8.93 # Initial density [g/cm^3]
-    c0 = 4.6    # Speed of sound [km/s]
-    cv = 3.9e-4 # Heat capacity [kJ/(g*K)]
-    t0 = 300    # Initial temperature [K]
-    b0 = 2.1    # Speed of the shear wave [km/s]
-    alpha = 1.0 # Non-linear
-    beta = 3.0  # characteristic
-    gamma = 2.0 # constants
+    # rho0 = 8.93 # Initial density [g/cm^3]
+    # c0 = 4.6    # Speed of sound [km/s]
+    # cv = 3.9e-4 # Heat capacity [kJ/(g*K)]
+    # t0 = 300    # Initial temperature [K]
+    # b0 = 2.1    # Speed of the shear wave [km/s]
+    # alpha = 1.0 # Non-linear
+    # beta = 3.0  # characteristic
+    # gamma = 2.0 # constants
+
+    rho0 = _rho0
+    c0 = _c0
+    cv = _cv
+    t0 = _t0
+    b0 = _b0
+    alpha = _alpha
+    beta = _beta
+    gamma = _gamma
 
     # Secondary parameters
     b0sq = b0^2              # Formerly B0
