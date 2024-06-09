@@ -37,13 +37,13 @@ function lxf_pathcons(eos::Tuple{T,T}, Q_l::Array{<:Any,1}, Q_r::Array{<:Any,1},
   nodes, weights = (nodes .+ 1.0) / 2.0, weights ./ 2.0  # for [0,1] interval
 
   A = Q -> noncons_flux(eos, Q)
-  # Path derivative, consider to define globally (?) 
+  # Path derivative, consider to define globally
   dpath(Q_l, Q_r, s) = derivative(s -> path(Q_l, Q_r, s), s)
-  uvals = [path(Q_l, Q_r, s) for s in nodes]    # values of matrix in quad. points
-  dvals = [dpath(Q_l, Q_r, s) for s in nodes]    # values of $\partial\psi/\partia s$ in quad. points
-  avals = A.(uvals)                           # values of matrix in quad. points
+  uvals = [path(Q_l, Q_r, s) for s in nodes]     # values of ψ in quad. points
+  dvals = [dpath(Q_l, Q_r, s) for s in nodes]    # values of ∂ψ/∂s in quad. points
+  avals = A.(uvals)                              # values of matrix in quad. points
 
-  # Интегрируем
+  # Integration
   flux_path = sum([weights[i] * avals[i] * dvals[i] for i in 1:length(weights)])
 
   # <<Потоки>>, $D^+$ и $D^-$

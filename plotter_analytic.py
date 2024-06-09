@@ -11,6 +11,31 @@ plotpath = './plots/'
 datafile = 'result.csv'
 # datafile = 'sol_004700.csv'
 
+analyticpath = './analytic_data/'
+
+
+def read_analytic_data(filename):
+    data = np.loadtxt(analyticpath + filename, delimiter=';')
+    x = data[:, 0]
+    q = data[:, 1]
+    return x, q
+
+
+test = 1
+a_den = []
+a_x_den = []
+a_ent = []
+a_x_ent = []
+a_vel = [[], [], []]
+a_x_vel = [[], [], []]
+
+a_x_den, a_den = read_analytic_data(f'T{test}_den.csv')
+a_x_vel[0], a_vel[0] = read_analytic_data(f'T{test}_vel1.csv')
+a_x_vel[1], a_vel[1] = read_analytic_data(f'T{test}_vel2.csv')
+a_x_vel[2], a_vel[2] = read_analytic_data(f'T{test}_vel3.csv')
+a_x_ent, a_ent = read_analytic_data(f'T{test}_ent.csv')
+
+
 Q = np.loadtxt(datapath + datafile, delimiter='\t', skiprows=1)
 
 frac = [Q[:, 0], Q[:, 15]]
@@ -33,6 +58,11 @@ titles = ['Объемная доля', 'Истинная плотность',
 ylabels = [r'$\alpha$', r'$\rho, г/см^3$', r'$u_x, км/c$',
            r'$u_y, км/c$', r'$u_z, км/c$',
            r'$\eta, \,\frac{\text{кДж}}{\text{г} \, \text{К}}$']
+
+den_plt[1].plot(a_x_den, a_den, label='Аналитика', color='blue')
+ent_plt[1].plot(a_x_ent, a_ent, label='Аналитика', color='blue')
+for i in range(3):
+    vel_plt[i][1].plot(a_x_vel[i], a_vel[i], label='Аналитика', color='blue')
 
 for p in range(2):
     frac_plt[1].plot(X, frac[p], label=f'Фаза {p+1}', color=colors[p])

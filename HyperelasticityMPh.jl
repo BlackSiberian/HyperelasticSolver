@@ -317,10 +317,30 @@ function initial_states(eos::Tuple{T,T}, testcase::Int) where {T<:EoS}
     F_r_1 = F_r_2 = F_r
     S_r_1 = S_r_2 = 0.0 # [kJ/(g*K)]
   elseif testcase == 6
-    alpha_l_1 = 0.4
-    alpha_l_2 = 0.6
-    alpha_r_1 = 0.6
-    alpha_r_2 = 0.4
+    alpha_l_1 = 0.1
+    alpha_l_2 = 0.9
+    alpha_r_1 = 0.9
+    alpha_r_2 = 0.1
+    den_1 = den_2 = 8.9
+
+    u_l_1 = u_l_2 = [0.0, 0.5, 1.0] # [km/s]
+    F_l = [0.98 0.0 0.0;
+      0.02 1.0 0.1;
+      0.0 0.0 1.0]
+    F_l_1 = F_l_2 = F_l
+    S_l_1 = S_l_2 = 1.0e-3 # [kJ/(g*K)]
+
+    u_r_1 = u_r_2 = [0.0, 0.0, 0.0] # [km/s]
+    F_r = [1.0 0.0 0.0;
+      0.0 1.0 0.1;
+      0.0 0.0 1.0]
+    F_r_1 = F_r_2 = F_r
+    S_r_1 = S_r_2 = 0.0 # [kJ/(g*K)]
+  elseif testcase == 7
+    alpha_l_1 = 0.1
+    alpha_l_2 = 0.9
+    alpha_r_1 = 0.9
+    alpha_r_2 = 0.1
     den_1 = den_2 = 8.9
 
     u_l_1 = u_l_2 = [2.0, 0.0, 0.1] # [km/s]
@@ -336,7 +356,8 @@ function initial_states(eos::Tuple{T,T}, testcase::Int) where {T<:EoS}
       -0.01 0.0 0.9]
     F_r_1 = F_r_2 = F_r
     S_r_1 = S_r_2 = 0.0 # [kJ/(g*K)]
-  elseif testcase == 7
+
+  elseif testcase == 10
     alpha_l_1 = 0.4
     alpha_l_2 = 0.6
     alpha_r_1 = 0.6

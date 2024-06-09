@@ -115,16 +115,18 @@ global_logger(logger) # Set logger as global logger
 # Потом завернуть в структуру?
 # Set equation of state for each phase
 eos = (Barton2009(), Barton2009(_rho0=8.93, _c0=6.22, _cv=9.0e-4, _t0=300, _b0=3.16, _alpha=1, _beta=3.577, _gamma=2.088))
+# eos = (Barton2009(), Barton2009())
 testcase = 6    # Select the test case
 
-log_freq = 10   # Log frequency
+log_freq = 100  # Log frequency
 
 
 X = 1.0     # Coordinate boundary [m]
 T = 0.06    # Time boundary [1e-5 s]
 
-nx = 500    # Number of steps on dimension coordinate
+nx = 2000   # Number of steps on dimension coordinate
 cfl = 0.6   # Courant-Friedrichs-Levy number
+dt = 1e-5
 
 dx = X / nx # Coordinate step
 
@@ -155,7 +157,7 @@ while t < T
     lambda = max(lambda, (abs.(Q[3:15:end] ./ Q[2:15:end]) .+ 5.0)...)
   end
 
-  global dt = cfl * dx / lambda
+  # global dt = cfl * dx / lambda
   global t += dt                  # Updating the time
   global step_num += 1            # Updating the step counter
 
@@ -166,7 +168,6 @@ while t < T
   Threads.@threads for i in 2:nx-1
     Q1[:, i] = update_cell(Q0[:, i-1:i+1], lxf, dx / dt, eos)
   end
-
   global Q0 = copy(Q1)
 
   # Saving the solution array to a file
