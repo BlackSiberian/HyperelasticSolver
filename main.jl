@@ -14,7 +14,7 @@ include("./NumFluxes.jl")
 # Только то, что нужно в main.jl
 using .EquationsOfState: EoS, Barton2009
 # using .Hyperelasticity: prim2cons, cons2prim, initial_states, postproc_arrays
-using .HyperelasticityMPh: initial_states, cons2prim_mph, prim2cons_mph#, postproc_arrays
+using .HyperelasticityMPh: initial_states, cons2prim_mph, prim2cons_mph, get_eigvals#, postproc_arrays
 using .NumFluxes: lxf
 
 
@@ -149,16 +149,14 @@ save_data(fname, Q0)
 # Timestepping
 while t < T
   # Computing the time step using CFL condition
-  lambda = 0
-  for i in 1:nx
+  lambda = Array{Float64}(undef, nx)
+  Threads.@threads for i = 1:nx
     Q = Q0[:, i]
-    # local den = density(Q[4:12])
-    # lambda = max(abs(Q0[1, i]) / den + 5.0, lambda)
-    # TODO: replace 5 with max eigenvalue
-    lambda = max(lambda, (abs.(Q[3:15:end] ./ Q[2:15:end]) .+ 5.0)...)
+    n = [1, 0, 0]
+    lambda[i] = get_eigvals(eos, Q, n)
   end
+  global dt = cfl * dx / maximum(lambda)
 
-  # global dt = cfl * dx / lambda
   global t += dt                  # Updating the time
   global step_num += 1            # Updating the step counter
 

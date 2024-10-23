@@ -5,12 +5,12 @@
 
 module HyperelasticityMPh
 
-using LinearAlgebra: inv, transpose, det, tr, I
+using LinearAlgebra: inv, transpose, det, tr, I, dot, eigvals
 using ForwardDiff: derivative
-using ..EquationsOfState: energy, entropy, stress, EoS, Barton2009, Hank2016
+using ..EquationsOfState: energy, entropy, stress, EoS, Barton2009, Hank2016, acoustic
 using ..Strains: finger, invariants
 
-export prim2cons_mph, cons2prim_mph, flux_mph, noncons_flux, initial_states #, postproc_arrays
+export prim2cons_mph, cons2prim_mph, flux_mph, noncons_flux, initial_states, get_eigvals #, postproc_arrays
 
 # Number of phases
 # const nph = 2
@@ -101,33 +101,33 @@ for multiphase hyperelasticity with `eos` equation of state.
 function cons2prim_mph(eos::Tuple{T,T}, Q::Array{<:Any,1}) where {T<:EoS}
   ph = (Q[i:i+15-1] for i in 1:15:length(Q))
 
-  function cons2prim(eos::T, Q::Array{<:Any,1}) where {T<:EoS}
-    P = similar(Q)
-
-    frac = Q[1]
-    den = Q[2]
-    true_den = den / frac
-    vel = Q[3:5] / den
-    e_total = Q[6] / den
-    e_kin = sum(vel .^ 2) / 2
-    e_int = e_total - e_kin
-    def_grad = Q[7:15] / den
-
-    G = finger(def_grad)
-    ent = entropy(eos, e_int, G)
-
-    P[1] = frac
-    P[2] = true_den
-    P[3:5] = vel
-    P[6] = ent
-    P[7:15] = def_grad
-
-    return P
-  end
   P = vcat([cons2prim(eos[i], Q) for (i, Q) in enumerate(ph)]...)
   return P
 end
 
+function cons2prim(eos::T, Q::Array{<:Any,1}) where {T<:EoS}
+  P = similar(Q)
+
+  frac = Q[1]
+  den = Q[2]
+  true_den = den / frac
+  vel = Q[3:5] / den
+  e_total = Q[6] / den
+  e_kin = sum(vel .^ 2) / 2
+  e_int = e_total - e_kin
+  def_grad = Q[7:15] / den
+
+  G = finger(def_grad)
+  ent = entropy(eos, e_int, G)
+
+  P[1] = frac
+  P[2] = true_den
+  P[3:5] = vel
+  P[6] = ent
+  P[7:15] = def_grad
+
+  return P
+end
 
 """
     flux_mph(eos::T, Q::Array{<:Any, 1}) where {T<:EoS}
@@ -150,9 +150,9 @@ function flux(eos::T, Q::Array{<:Any,1}) where {T<:EoS}
   e_int = e_total - e_kin
   def_grad = Q[7:15] / den
 
-  # strs = stress(eos, den, e_int, def_grad)
-  ent = entropy(eos, e_int, finger(def_grad))
-  strs = stress(eos, ent, def_grad)
+  strs = stress(eos, den, e_int, def_grad)
+  # ent = entropy(eos, e_int, finger(def_grad))
+  # strs = stress(eos, ent, def_grad)
 
   flux = similar(Q)
 
@@ -178,9 +178,9 @@ function noncons_flux(eos::Tuple{T,T}, Q::Array{<:Any,1}) where {T<:EoS}
   e_int = e_total - e_kin
   def_grad = [Q[p][7:15] / den[p] for p in 1:nph]
 
-  # strs = [reshape(stress(eos[p], den[p], e_int[p], def_grad[p]), 3, 3) for p in 1:nph]
-  ent = [entropy(eos[p], e_int[p], def_grad[p]) for p in 1:nph]
-  strs = [reshape(stress(eos[p], ent[p], def_grad[p]), (3, 3)) for p in 1:nph]
+  strs = [reshape(stress(eos[p], den[p], e_int[p], def_grad[p]), 3, 3) for p in 1:nph]
+  # ent = [entropy(eos[p], e_int[p], def_grad[p]) for p in 1:nph]
+  # strs = [reshape(stress(eos[p], ent[p], def_grad[p]), (3, 3)) for p in 1:nph]
 
   # Омега должна быть равна нулю, поскольку иначе возникает нефизичный импульс
   # omega = 1 / 2
@@ -238,6 +238,21 @@ function noncons_flux(eos::Tuple{T,T}, Q::Array{<:Any,1}) where {T<:EoS}
 
   B = combine_blocks(B)
   return B
+end
+
+function get_eigvals(eos::Tuple{T,T}, Q::Array{<:Any,1}, n::Array{<:Any,1}) where {T<:EoS}
+  Q = [Q[p:p+14] for p = 1:15:length(Q)]
+  nph = length(Q)
+  return maximum([get_eigvals(eos[i], Q[i], n) for i = 1:nph])
+end
+
+function get_eigvals(eos::T, Q::Array{<:Any,1}, n::Array{<:Any,1}) where {T<:EoS}
+  P = cons2prim(eos, Q)
+  # ac = acoustic(eos, P[6], P[7:15], n)
+  ac = acoustic(eos, P, n)
+  sound_spd = sqrt.(abs.(eigvals(ac)))
+  spd = abs(dot(P[3:5], n))
+  return spd + maximum(sound_spd)
 end
 
 """
