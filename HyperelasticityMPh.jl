@@ -150,7 +150,9 @@ function flux(eos::T, Q::Array{<:Any,1}) where {T<:EoS}
   e_int = e_total - e_kin
   def_grad = Q[7:15] / den
 
-  strs = stress(eos, den, e_int, def_grad)
+  # strs = stress(eos, den, e_int, def_grad)
+  ent = entropy(eos, e_int, finger(def_grad))
+  strs = stress(eos, ent, def_grad)
 
   flux = similar(Q)
 
@@ -176,7 +178,9 @@ function noncons_flux(eos::Tuple{T,T}, Q::Array{<:Any,1}) where {T<:EoS}
   e_int = e_total - e_kin
   def_grad = [Q[p][7:15] / den[p] for p in 1:nph]
 
-  strs = [reshape(stress(eos[p], den[p], e_int[p], def_grad[p]), 3, 3) for p in 1:nph]
+  # strs = [reshape(stress(eos[p], den[p], e_int[p], def_grad[p]), 3, 3) for p in 1:nph]
+  ent = [entropy(eos[p], e_int[p], def_grad[p]) for p in 1:nph]
+  strs = [reshape(stress(eos[p], ent[p], def_grad[p]), (3, 3)) for p in 1:nph]
 
   # Омега должна быть равна нулю, поскольку иначе возникает нефизичный импульс
   # omega = 1 / 2

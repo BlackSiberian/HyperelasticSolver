@@ -172,6 +172,20 @@ function stress(eos::Barton2009, den, e_int, F::Array{<:Any,1})::Array{<:Any,1}
   return reshape(stress, length(stress))
 end
 
+# WARNING: Requires smaller timestep
+function stress(eos::Barton2009, ent, F::Array{<:Any,1})::Array{<:Any,1}
+  den = eos.rho0 / det(reshape(F, (3, 3)))
+  G = finger(F)
+
+  dedG = gradient(G -> energy(eos, ent, G), G)
+
+  G = reshape(G, (3, 3))
+  dedG = reshape(dedG, (3, 3))
+
+  stress = -2 * den .* G * dedG
+  return reshape(stress, length(stress))
+end
+
 # Deprecated function
 # Здесь Q --- одномерный массив.
 """

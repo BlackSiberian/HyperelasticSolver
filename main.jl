@@ -114,8 +114,8 @@ global_logger(logger) # Set logger as global logger
 # Выносим сюда, в одно место, постепенно, все основные параметры расчета.
 # Потом завернуть в структуру?
 # Set equation of state for each phase
-eos = (Barton2009(), Barton2009(_rho0=8.93, _c0=6.22, _cv=9.0e-4, _t0=300, _b0=3.16, _alpha=1, _beta=3.577, _gamma=2.088))
-# eos = (Barton2009(), Barton2009())
+# eos = (Barton2009(), Barton2009(_rho0=8.93, _c0=6.22, _cv=9.0e-4, _t0=300, _b0=3.16, _alpha=1, _beta=3.577, _gamma=2.088))
+eos = (Barton2009(), Barton2009())
 testcase = 6    # Select the test case
 
 log_freq = 100  # Log frequency
@@ -124,9 +124,9 @@ log_freq = 100  # Log frequency
 X = 1.0     # Coordinate boundary [m]
 T = 0.06    # Time boundary [1e-5 s]
 
-nx = 2000   # Number of steps on dimension coordinate
+nx = 500   # Number of steps on dimension coordinate
 cfl = 0.6   # Courant-Friedrichs-Levy number
-dt = 1e-5
+dt = 0.5 * 1e-4
 
 dx = X / nx # Coordinate step
 
