@@ -4,6 +4,7 @@ using Printf
 using Logging, LoggingExtras
 
 # Include all modules that is used in main.jl and in imported modules
+include("./SimpleLA.jl")
 include("./Strains.jl");
 include("./EquationsOfState.jl")
 # include("./Hyperelasticity.jl")
