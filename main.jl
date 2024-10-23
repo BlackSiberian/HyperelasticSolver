@@ -26,9 +26,11 @@ Returns the value of quantity in the cell to the next time layer using
 
 `lambda` is the value of `Δx/Δt`
 """
+# ### Old Lax-Friedrichs method
 function update_cell(Q::Array{<:Any,2}, flux_num::Function, lambda, eos::Tuple{T,T}) where {T<:EoS}
   Q_l, Q, Q_r = Q[:, 1], Q[:, 2], Q[:, 3]
 
+  # For onephase
   # F_l = flux_num(eos, Q_l, Q, lambda)
   # F_r = flux_num(eos, Q, Q_r, lambda)
   # return Q - 1.0 / lambda * (F_r - F_l)
@@ -36,6 +38,18 @@ function update_cell(Q::Array{<:Any,2}, flux_num::Function, lambda, eos::Tuple{T
   F_l, _, NF_l = flux_num(eos, Q_l, Q, lambda)
   F_r, NF_r, _ = flux_num(eos, Q, Q_r, lambda)
   return Q - 1.0 / lambda * ((F_r - F_l) + (NF_r + NF_l))
+end
+###
+function update_cell(Q::Array{<:Any,2}, flux_num::Function, lambda::Array{<:Any,1}, dtdx, eos::Tuple{T,T}) where {T<:EoS}
+  Q_l, Q, Q_r = Q[:, 1], Q[:, 2], Q[:, 3]
+  # For Rusanov method
+  lambda_l, lambda_r = max(lambda[1], lambda[2]), max(lambda[2], lambda[3])
+  # For Lax-Friedrichs method
+  lambda_l, lambda_r = 1 / dtdx, 1 / dtdx
+
+  F_l, _, NF_l = flux_num(eos, Q_l, Q, lambda_l)
+  F_r, NF_r, _ = flux_num(eos, Q, Q_r, lambda_r)
+  return Q - dtdx * ((F_r - F_l) + (NF_r + NF_l))
 end
 
 """
@@ -125,8 +139,8 @@ log_freq = 100  # Log frequency
 X = 1.0     # Coordinate boundary [m]
 T = 0.06    # Time boundary [1e-5 s]
 
-nx = 500   # Number of steps on dimension coordinate
-cfl = 0.6   # Courant-Friedrichs-Levy number
+nx = 500      # Number of steps on dimension coordinate
+cfl = 0.8   # Courant-Friedrichs-Levy number
 dt = 0.5 * 1e-4
 
 dx = X / nx # Coordinate step
@@ -165,7 +179,9 @@ while t < T
   Q1[:, begin] = Q0[:, begin]
   Q1[:, end] = Q0[:, end]
   Threads.@threads for i in 2:nx-1
-    Q1[:, i] = update_cell(Q0[:, i-1:i+1], lxf, dx / dt, eos)
+    # Old LxF method call
+    # Q1[:, i] = update_cell(Q0[:, i-1:i+1], lxf, dx / dt, eos)
+    Q1[:, i] = update_cell(Q0[:, i-1:i+1], lxf, lambda[i-1:i+1], dt / dx, eos)
   end
   global Q0 = copy(Q1)
 

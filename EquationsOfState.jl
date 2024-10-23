@@ -216,6 +216,34 @@ function acoustic(eos::Barton2009, P::Array{<:Any,1}, n::Array{<:Any,1})::Array{
 
   return acoustic
 end
+# WARNING: Requires smaller timestep
+function acoustic(eos::Barton2009, ent, F::Array{<:Any,1}, n::Array{<:Any,1})::Array{<:Any,2}
+  # acoustic = Array{Float64,2}(undef, 3, 3)
+  acoustic = zeros(3, 3)
+  dTdF = reshape(jacobian(F -> stress(eos, ent, F), F), (3, 3, 3, 3))
+  F = reshape(F, (3, 3))
+  den = eos.rho0 / det(F)
+  A = (1 / den) .* dTdF
+
+  # F = reshape(F, (3, 3))
+  for i = 1:3
+    for j = 1:3
+      # acoustic[i, j] = 0
+      for k = 1:3
+        for l = 1:3
+          for m = 1:3
+            acoustic[i, j] += A[m, i, j, l] * F[k, l] * n[m] * n[k]
+          end
+        end
+      end
+    end
+  end
+
+  return acoustic
+end
+
+
+
 
 # Deprecated function
 # Здесь Q --- одномерный массив.

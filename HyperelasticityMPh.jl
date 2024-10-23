@@ -72,8 +72,6 @@ function prim2cons_mph(eos::Tuple{T,T}, P::Array{<:Any,1}) where {T<:EoS}
     entropy = P[6]
     def_grad = P[7:15]
 
-    # G = finger(inv(reshape(distortion, (3, 3))))
-    # G = finger(distortion)
     G = finger(def_grad)
     e_int = energy(eos, entropy, G)
     e_kin = sum(vel .^ 2) / 2
@@ -151,6 +149,7 @@ function flux(eos::T, Q::Array{<:Any,1}) where {T<:EoS}
   def_grad = Q[7:15] / den
 
   strs = stress(eos, den, e_int, def_grad)
+  # WARNING: Uncomment for new stress
   # ent = entropy(eos, e_int, finger(def_grad))
   # strs = stress(eos, ent, def_grad)
 
@@ -179,6 +178,7 @@ function noncons_flux(eos::Tuple{T,T}, Q::Array{<:Any,1}) where {T<:EoS}
   def_grad = [Q[p][7:15] / den[p] for p in 1:nph]
 
   strs = [reshape(stress(eos[p], den[p], e_int[p], def_grad[p]), 3, 3) for p in 1:nph]
+  # WARNING: Uncomment for new stress
   # ent = [entropy(eos[p], e_int[p], def_grad[p]) for p in 1:nph]
   # strs = [reshape(stress(eos[p], ent[p], def_grad[p]), (3, 3)) for p in 1:nph]
 
@@ -210,15 +210,6 @@ function noncons_flux(eos::Tuple{T,T}, Q::Array{<:Any,1}) where {T<:EoS}
       B[p][6+i.+(1:3), 1] = omega * true_den[p] / 3 .* (vel_i[1] - vel[p][1]) .* def_grad[p][i.+(1:3)] + true_den[p] * def_grad[p][i+1] .* vel[p]
     end
     B[p][7:3:15, 1] += (1 - omega) * true_den[p] .* transpose(reshape(def_grad[p], 3, 3)) * (vel_i - vel[p])
-    # for i in 1:3
-    #   B[p][7+(i-1)*3, 1] = (1 - omega) * true_den[p] * sum(def_grad[p][1:3] .* vel[p])
-    # end
-
-    # bad ones
-    # for i in 0:2
-    #   B[p][6+3*i.+(1:3), 1] = omega * true_den[p] / 3 * (vel_i[1] - vel[p][1]) .* def_grad[p][3*i.+(1:3)]
-    # end
-    # B[p][7:9, 1] += den[p] * (vel_i[1] - vel[p][1]) .* def_grad[p][1:3]
   end
 
 
@@ -248,8 +239,9 @@ end
 
 function get_eigvals(eos::T, Q::Array{<:Any,1}, n::Array{<:Any,1}) where {T<:EoS}
   P = cons2prim(eos, Q)
-  # ac = acoustic(eos, P[6], P[7:15], n)
   ac = acoustic(eos, P, n)
+  # WARNING: Uncomment for new stress
+  # ac = acoustic(eos, P[6], P[7:15], n)
   sound_spd = sqrt.(abs.(eigvals(ac)))
   spd = abs(dot(P[3:5], n))
   return spd + maximum(sound_spd)
