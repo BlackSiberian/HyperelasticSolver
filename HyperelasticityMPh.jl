@@ -234,7 +234,7 @@ end
 function get_eigvals(eos::Tuple{T,T}, Q::Array{<:Any,1}, n::Array{<:Any,1}) where {T<:EoS}
   Q = [Q[p:p+14] for p = 1:15:length(Q)]
   nph = length(Q)
-  return maximum([get_eigvals(eos[i], Q[i], n) for i = 1:nph])
+  return vcat([get_eigvals(eos[i], Q[i], n) for i = 1:nph]...)
 end
 
 function get_eigvals(eos::T, Q::Array{<:Any,1}, n::Array{<:Any,1}) where {T<:EoS}
@@ -243,8 +243,8 @@ function get_eigvals(eos::T, Q::Array{<:Any,1}, n::Array{<:Any,1}) where {T<:EoS
   # WARNING: Uncomment for new stress
   # ac = acoustic(eos, P[6], P[7:15], n)
   sound_spd = sqrt.(abs.(eigvals(ac)))
-  spd = abs(dot(P[3:5], n))
-  return spd + maximum(sound_spd)
+  spd = dot(P[3:5], n)
+  return vcat(spd .+ sound_spd, spd .- sound_spd)
 end
 
 """

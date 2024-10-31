@@ -15,7 +15,7 @@ include("./NumFluxes.jl")
 using .EquationsOfState: EoS, Barton2009
 # using .Hyperelasticity: prim2cons, cons2prim, initial_states, postproc_arrays
 using .HyperelasticityMPh: initial_states, cons2prim_mph, prim2cons_mph, get_eigvals#, postproc_arrays
-using .NumFluxes: lxf
+using .NumFluxes: lxf, hll
 
 
 """
@@ -45,7 +45,7 @@ function update_cell(Q::Array{<:Any,2}, flux_num::Function, lambda::Array{<:Any,
   # For Rusanov method
   lambda_l, lambda_r = max(lambda[1], lambda[2]), max(lambda[2], lambda[3])
   # For Lax-Friedrichs method
-  lambda_l, lambda_r = 1 / dtdx, 1 / dtdx
+  # lambda_l, lambda_r = 1 / dtdx, 1 / dtdx
 
   F_l, _, NF_l = flux_num(eos, Q_l, Q, lambda_l)
   F_r, NF_r, _ = flux_num(eos, Q, Q_r, lambda_r)
@@ -167,7 +167,7 @@ while t < T
   Threads.@threads for i = 1:nx
     Q = Q0[:, i]
     n = [1, 0, 0]
-    lambda[i] = get_eigvals(eos, Q, n)
+    lambda[i] = maximum(abs.(get_eigvals(eos, Q, n)))
   end
   global dt = cfl * dx / maximum(lambda)
 
@@ -181,7 +181,7 @@ while t < T
   Threads.@threads for i in 2:nx-1
     # Old LxF method call
     # Q1[:, i] = update_cell(Q0[:, i-1:i+1], lxf, dx / dt, eos)
-    Q1[:, i] = update_cell(Q0[:, i-1:i+1], lxf, lambda[i-1:i+1], dt / dx, eos)
+    Q1[:, i] = update_cell(Q0[:, i-1:i+1], hll, lambda[i-1:i+1], dt / dx, eos)
   end
   global Q0 = copy(Q1)
 
