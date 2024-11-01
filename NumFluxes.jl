@@ -67,26 +67,28 @@ the HLL method and `eos` equation of state
 
 `lambda` is the value of `Δx/Δt`
 """
-function hll(eos::Tuple{T,T}, Q_l::Array{<:Any,1}, Q_r::Array{<:Any,1}, lambda) where {T<:EoS}
+function hll(eos::Tuple{T,T}, Q_l::Array{<:Any,1}, Q_r::Array{<:Any,1}, eigvals::Array{<:Any,1}) where {T<:EoS}
   path(Q_l, Q_r, s) = Q_l .* (1 - s) + Q_r .* s # define path
+  #
+  # Q_m = 0.5 * (Q_l + Q_r)
+  # n = [1, 0, 0]
+  # s_l = min(0, minimum(get_eigvals(eos, Q_m, n)), minimum(get_eigvals(eos, Q_l, n)))
+  # s_r = max(0, maximum(get_eigvals(eos, Q_m, n)), maximum(get_eigvals(eos, Q_r, n)))
+  #
+  # cons = (s_r * flux_mph(eos, Q_l) - s_l * flux_mph(eos, Q_r)) / (s_r - s_l) + s_l * s_r / (s_r - s_l) * (Q_r - Q_l)
 
-  Q_m = 0.5 * (Q_l + Q_r)
-  n = [1, 0, 0]
-  s_l = min(0, minimum(get_eigvals(eos, Q_m, n)), minimum(get_eigvals(eos, Q_l, n)))
-  s_r = max(0, maximum(get_eigvals(eos, Q_m, n)), maximum(get_eigvals(eos, Q_r, n)))
-
-  cons = (s_r * flux_mph(eos, Q_l) - s_l * flux_mph(eos, Q_r)) / (s_r - s_l) + s_l * s_r / (s_r - s_l) * (Q_r - Q_l)
-
-  noncons_minus, noncons_plus = hll_pathcons(eos, Q_l, Q_r, path)
+  noncons_minus, noncons_plus = hll_pathcons(eos, Q_l, Q_r, path, eigvals)
   # return cons, noncons_minus, noncons_plus
   return zeros(30), noncons_minus, noncons_plus
 end
 
-function hll_pathcons(eos::Tuple{T,T}, Q_l::Array{<:Any,1}, Q_r::Array{<:Any,1}, path::Function) where {T<:EoS}
+function hll_pathcons(eos::Tuple{T,T}, Q_l::Array{<:Any,1}, Q_r::Array{<:Any,1}, path::Function, eigvals::Array{<:Any,1}) where {T<:EoS}
   Q_m = 0.5 * (Q_l + Q_r)
   n = [1, 0, 0]
-  s_l = min(0, minimum(get_eigvals(eos, Q_m, n)), minimum(get_eigvals(eos, Q_l, n)))
-  s_r = max(0, maximum(get_eigvals(eos, Q_m, n)), maximum(get_eigvals(eos, Q_r, n)))
+  # s_l = min(0, minimum(get_eigvals(eos, Q_m, n)), minimum(get_eigvals(eos, Q_l, n)))
+  # s_r = max(0, maximum(get_eigvals(eos, Q_m, n)), maximum(get_eigvals(eos, Q_r, n)))
+  s_l = min(0, minimum(get_eigvals(eos, Q_m, n)), minimum(eigvals[1]))
+  s_r = max(0, maximum(get_eigvals(eos, Q_m, n)), maximum(eigvals[2]))
 
   nodes, weights = gausslobatto(5)                       # for [-1,+1] interval
   nodes, weights = (nodes .+ 1.0) / 2.0, weights ./ 2.0  # for [0,1] interval
@@ -113,7 +115,7 @@ function hll_pathcons(eos::Tuple{T,T}, Q_l::Array{<:Any,1}, Q_r::Array{<:Any,1},
     b_2 = B_int(Q_hll, Q_r)
     path_int = b_1 + b_2 + flux_mph(eos, Q_r) - flux_mph(eos, Q_l)
     Q_hll = (Q_r * s_r - Q_l * s_l - path_int) / (s_r - s_l)
-    if norm(Q_old - Q_hll) < 1e-5
+    if norm(Q_old - Q_hll) < 1e-12
       break
     end
   end

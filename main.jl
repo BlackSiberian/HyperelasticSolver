@@ -40,15 +40,21 @@ function update_cell(Q::Array{<:Any,2}, flux_num::Function, lambda, eos::Tuple{T
   return Q - 1.0 / lambda * ((F_r - F_l) + (NF_r + NF_l))
 end
 ###
-function update_cell(Q::Array{<:Any,2}, flux_num::Function, lambda::Array{<:Any,1}, dtdx, eos::Tuple{T,T}) where {T<:EoS}
+function update_cell(Q::Array{<:Any,2}, flux_num::Function, eigvals::Array{<:Any,1}, dtdx, eos::Tuple{T,T}) where {T<:EoS}
   Q_l, Q, Q_r = Q[:, 1], Q[:, 2], Q[:, 3]
-  # For Rusanov method
-  lambda_l, lambda_r = max(lambda[1], lambda[2]), max(lambda[2], lambda[3])
-  # For Lax-Friedrichs method
+  # # For Rusanov method
+  # lambda = maximum(abs.(eigvals))
+  # lambda_l, lambda_r = max(lambda[1], lambda[2]), max(lambda[2], lambda[3])
+  # # For Lax-Friedrichs method
   # lambda_l, lambda_r = 1 / dtdx, 1 / dtdx
+  #
+  # F_l, _, NF_l = flux_num(eos, Q_l, Q, lambda_l)
+  # F_r, NF_r, _ = flux_num(eos, Q, Q_r, lambda_r)
 
-  F_l, _, NF_l = flux_num(eos, Q_l, Q, lambda_l)
-  F_r, NF_r, _ = flux_num(eos, Q, Q_r, lambda_r)
+  # For HLL method
+  F_l, _, NF_l = flux_num(eos, Q_l, Q, eigvals[1:2])
+  F_r, NF_r, _ = flux_num(eos, Q, Q_r, eigvals[2:3])
+
   return Q - dtdx * ((F_r - F_l) + (NF_r + NF_l))
 end
 
@@ -164,10 +170,12 @@ save_data(fname, Q0)
 while t < T
   # Computing the time step using CFL condition
   lambda = Array{Float64}(undef, nx)
+  eigvals = Array{Array{Float64}}(undef, nx)
   Threads.@threads for i = 1:nx
     Q = Q0[:, i]
     n = [1, 0, 0]
-    lambda[i] = maximum(abs.(get_eigvals(eos, Q, n)))
+    eigvals[i] = get_eigvals(eos, Q, n)
+    lambda[i] = maximum(abs.(eigvals[i]))
   end
   global dt = cfl * dx / maximum(lambda)
 
@@ -181,7 +189,7 @@ while t < T
   Threads.@threads for i in 2:nx-1
     # Old LxF method call
     # Q1[:, i] = update_cell(Q0[:, i-1:i+1], lxf, dx / dt, eos)
-    Q1[:, i] = update_cell(Q0[:, i-1:i+1], hll, lambda[i-1:i+1], dt / dx, eos)
+    Q1[:, i] = update_cell(Q0[:, i-1:i+1], hll, eigvals[i-1:i+1], dt / dx, eos)
   end
   global Q0 = copy(Q1)
 
