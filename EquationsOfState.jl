@@ -149,6 +149,9 @@ function entropy(eos::Barton2009, e_int, G::Array{<:Any,1})
 
   S = e_int - 0.5 * b0sq * i[3]^(0.5 * beta) * (i[1]^2 / 3 - i[2]) - 0.5 * k0 / (alpha^2) * (i[3]^(0.5 * alpha) - 1)^2
   S = (S / (cv * t0 * i[3]^(0.5 * gamma)) + 1)
+  if S < 1e-6
+    S = 1e-6
+  end
   return log(S) * cv
 end
 

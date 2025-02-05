@@ -44,6 +44,7 @@ function update_cell(Q::Array{<:Any,2}, flux_num::Function, eigvals::Array{<:Any
   Q_l, Q, Q_r = Q[:, 1], Q[:, 2], Q[:, 3]
   # # For Rusanov method
   # lambda = maximum(abs.(eigvals))
+  # lambda = [maximum(abs.(eigvals[i])) for i in 1:length(eigvals)]
   # lambda_l, lambda_r = max(lambda[1], lambda[2]), max(lambda[2], lambda[3])
   # # For Lax-Friedrichs method
   # lambda_l, lambda_r = 1 / dtdx, 1 / dtdx
@@ -59,11 +60,11 @@ function update_cell(Q::Array{<:Any,2}, flux_num::Function, eigvals::Array{<:Any
 end
 
 """
-    save_data(fname, Q::Array{<:Any,2})
+    save_data(fname::String, Q::Array{<:Any,2})
 
-Save the solution array to a `fname` file at `time`.
+Save the solution array `Q` to a `fname` file.
 """
-function save_data(fname, Q::Array{<:Any,2})
+function save_data(fname::String, Q::Array{<:Any,2})
   io = open(fname, "w")
   # write(io, "$t\n")
   nx = size(Q)[2]
@@ -75,6 +76,20 @@ function save_data(fname, Q::Array{<:Any,2})
   close(io)
 end
 
+"""
+    read_data(fname::String)
+
+Read the solution array from a `fname` file.
+"""
+function read_data(fname::String)
+  data = readlines(fname)
+  nx = length(data) - 1
+  P = Array{Float64}(undef, 30, nx)
+  for (indx, line) in enumerate(data[2:end])
+      P[:, indx] = parse.(Float64, split(line))
+  end
+  return P, nx
+end
 
 """
     initial_condition(Ql, Qr, nx)
@@ -112,26 +127,6 @@ end
 # ##############################################################################
 
 
-# Prepare the directory where data files will be saved
-cd(@__DIR__)
-dir_name = "barton_data/"
-dir_name = mkpath(dir_name)
-foreach(rm, readdir(dir_name, join=true)) # Remove all files in the directory
-@info @sprintf("Cleaning data directory  %s\n", dir_name)
-
-# Logging settings
-log_filename = "solution.log"
-@info @sprintf("Starting log at: %s", log_filename)
-logger = TeeLogger(
-  global_logger(),          # Current global logger (stderr)
-  FileLogger(log_filename)  # FileLogger writing to logfile.log
-)
-global_logger(logger) # Set logger as global logger
-
-@info @sprintf("Data directory: %s", dir_name)
-
-# ##############################################################################
-
 # Выносим сюда, в одно место, постепенно, все основные параметры расчета.
 # Потом завернуть в структуру?
 # Set equation of state for each phase
@@ -145,21 +140,58 @@ log_freq = 100  # Log frequency
 X = 1.0     # Coordinate boundary [m]
 T = 0.06    # Time boundary [1e-5 s]
 
-nx = 500      # Number of steps on dimension coordinate
-cfl = 0.8   # Courant-Friedrichs-Levy number
-dt = 0.5 * 1e-4
+nx = 1000   # Number of steps on dimension coordinate
+cfl = 0.6   # Courant-Friedrichs-Levy number
+dt = 5 * 1e-6
 
 dx = X / nx # Coordinate step
 
 eps = 0.2
 
-# Initialize initial conditions
-Ql, Qr = initial_states(eos, testcase)
-Q0 = initial_condition(Ql, Qr, nx)
-# Q0 = initial_condition_tanh(eos, Ql, Qr, nx, eps)
-
 t = 0.0        # Initilization of time
 step_num = 0   # Initilization of timestep counter
+
+# ##############################################################################
+
+# Logging settings
+log_filename = "solution.log"
+@info @sprintf("Starting log at: %s", log_filename)
+logger = TeeLogger(
+  global_logger(),          # Current global logger (stderr)
+  FileLogger(log_filename)  # FileLogger writing to logfile.log
+)
+global_logger(logger) # Set logger as global logger
+
+# Prepare the directory where data files will be saved
+cd(@__DIR__)
+dir_name = "barton_data/"
+dir_name = mkpath(dir_name)
+
+@info @sprintf("Data directory: %s", dir_name)
+
+
+# Initialize initial conditions
+if ("result.csv" in readdir(dir_name) || readdir(dir_name) == [])
+  foreach(rm, readdir(dir_name, join=true)) # Remove all files in the directory
+  @info @sprintf("Cleaning data directory: %s\n", dir_name)
+
+  Ql, Qr = initial_states(eos, testcase)
+  global Q0 = initial_condition(Ql, Qr, nx)
+  # Q0 = initial_condition_tanh(eos, Ql, Qr, nx, eps)
+else
+  # Find the last file
+  last_file = sort(readdir(dir_name, join=true))[end]
+  @info @sprintf("Found file: %s\n", last_file)
+  global step_num = parse(Int, split(split(basename(last_file), ".")[1], "_")[2]) # Initilization of step counter
+  global t = step_num * dt
+  P0 = Array{Float64}(undef, 30, nx)
+  global Q0 = similar(P0)
+  P0, nx = read_data(last_file) # Read the last file
+  for i in 1:nx
+    Q0[:, i] = prim2cons_mph(eos, P0[:, i])
+  end
+end
+
 
 fname = joinpath(dir_name, get_filename(step_num))
 save_data(fname, Q0)
@@ -189,6 +221,7 @@ while t < T
   Threads.@threads for i in 2:nx-1
     # Old LxF method call
     # Q1[:, i] = update_cell(Q0[:, i-1:i+1], lxf, dx / dt, eos)
+    # Q1[:, i] = update_cell(Q0[:, i-1:i+1], lxf, eigvals[i-1:i+1], dx / dt, eos)
     Q1[:, i] = update_cell(Q0[:, i-1:i+1], hll, eigvals[i-1:i+1], dt / dx, eos)
   end
   global Q0 = copy(Q1)

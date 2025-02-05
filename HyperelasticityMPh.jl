@@ -107,8 +107,13 @@ function cons2prim(eos::T, Q::Array{<:Any,1}) where {T<:EoS}
   P = similar(Q)
 
   frac = Q[1]
-  den = Q[2]
-  true_den = den / frac
+  # den = Q[2]
+  # true_den = den / frac
+ 
+  FQ = reshape(Q[7:15] ./ frac, (3, 3))
+  true_den = sqrt(det(FQ) / eos.rho0)
+  den = frac * true_den
+
   vel = Q[3:5] / den
   e_total = Q[6] / den
   e_kin = sum(vel .^ 2) / 2
@@ -140,8 +145,13 @@ end
 
 function flux(eos::T, Q::Array{<:Any,1}) where {T<:EoS}
   frac = Q[1]
-  den = Q[2]
-  true_den = den / frac
+  # den = Q[2]
+  # true_den = den / frac
+
+  FQ = reshape(Q[7:15] ./ frac, (3, 3))
+  true_den = sqrt(det(FQ) / eos.rho0)
+  den = frac * true_den
+
   vel = Q[3:5] / den
   e_total = Q[6] / den
   e_kin = sum(vel .^ 2) / 2
@@ -169,8 +179,14 @@ function noncons_flux(eos::Tuple{T,T}, Q::Array{<:Any,1}) where {T<:EoS}
   Q = [Q[p:p+14] for p in 1:15:length(Q)]
   nph = length(Q)
   frac = [Q[p][1] for p in 1:nph]
-  den = [Q[p][2] for p in 1:nph]
-  true_den = den ./ frac
+
+  # den = [Q[p][2] for p in 1:nph]
+  # true_den = den ./ frac
+
+  FQ = [reshape(Q[p][7:15] ./ frac[p], (3, 3)) for p in 1:nph]
+  true_den = [sqrt(det(FQ[p]) / eos[p].rho0) for p in 1:nph]
+  den = frac .* true_den
+
   vel = [Q[p][3:5] / den[p] for p in 1:nph]
   e_total = [Q[p][6] / den[p] for p in 1:nph]
   e_kin = [sum(vel[p] .^ 2) / 2 for p in 1:nph]
