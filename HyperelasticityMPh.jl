@@ -158,10 +158,10 @@ function flux(eos::T, Q::Array{<:Any,1}) where {T<:EoS}
   e_int = e_total - e_kin
   def_grad = Q[7:15] / den
 
-  strs = stress(eos, den, e_int, def_grad)
+  # strs = stress(eos, den, e_int, def_grad)
   # WARNING: Uncomment for new stress
-  # ent = entropy(eos, e_int, finger(def_grad))
-  # strs = stress(eos, ent, def_grad)
+  ent = entropy(eos, e_int, finger(def_grad))
+  strs = frac .* stress(eos, ent, def_grad)
 
   flux = similar(Q)
 
@@ -193,10 +193,11 @@ function noncons_flux(eos::Tuple{T,T}, Q::Array{<:Any,1}) where {T<:EoS}
   e_int = e_total - e_kin
   def_grad = [Q[p][7:15] / den[p] for p in 1:nph]
 
-  strs = [reshape(stress(eos[p], den[p], e_int[p], def_grad[p]), 3, 3) for p in 1:nph]
+  # strs = [reshape(stress(eos[p], den[p], e_int[p], def_grad[p]), 3, 3) for p in 1:nph]
   # WARNING: Uncomment for new stress
-  # ent = [entropy(eos[p], e_int[p], def_grad[p]) for p in 1:nph]
-  # strs = [reshape(stress(eos[p], ent[p], def_grad[p]), (3, 3)) for p in 1:nph]
+  G = [finger(def_grad[p]) for p in 1:nph]
+  ent = [entropy(eos[p], e_int[p], G[p]) for p in 1:nph]
+  strs = [reshape(frac[p] .* stress(eos[p], ent[p], def_grad[p]), (3, 3)) for p in 1:nph]
 
   # Омега должна быть равна нулю, поскольку иначе возникает нефизичный импульс
   # omega = 1 / 2
@@ -205,9 +206,10 @@ function noncons_flux(eos::Tuple{T,T}, Q::Array{<:Any,1}) where {T<:EoS}
   k = [k, 1 - k]
   beta = zeros(2)
 
-  G = [finger(def_grad[p]) for p in 1:nph]
-  S = [entropy(eos[p], e_int[p], G[p]) for p in 1:nph]
-  temp = [derivative(S -> energy(eos[p], S, G[p]), S[p]) for p in 1:nph]
+  # G = [finger(def_grad[p]) for p in 1:nph]
+  # S = [entropy(eos[p], e_int[p], G[p]) for p in 1:nph]
+  # temp = [derivative(S -> energy(eos[p], S, G[p]), S[p]) for p in 1:nph]
+  temp = [derivative(S -> energy(eos[p], S, G[p]), ent[p]) for p in 1:nph]
   vel_i = k[1] .* vel[1] + k[2] .* vel[2]
   # vel_i = vel[2]
   # vel_i = frac[1] .* vel[1] + frac[2] .* vel[2]
@@ -255,9 +257,9 @@ end
 
 function get_eigvals(eos::T, Q::Array{<:Any,1}, n::Array{<:Any,1}) where {T<:EoS}
   P = cons2prim(eos, Q)
-  ac = acoustic(eos, P, n)
+  # ac = acoustic(eos, P, n)
   # WARNING: Uncomment for new stress
-  # ac = acoustic(eos, P[6], P[7:15], n)
+  ac = acoustic(eos, P[6], P[7:15], n)
   sound_spd = sqrt.(abs.(eigvals(ac)))
   spd = dot(P[3:5], n)
   return vcat(spd .+ sound_spd, spd .- sound_spd)

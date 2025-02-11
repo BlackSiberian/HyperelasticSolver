@@ -9,7 +9,7 @@ module NumFluxes
 using ..HyperelasticityMPh: flux_mph, noncons_flux, get_eigvals
 using ..EquationsOfState: EoS
 using ForwardDiff: derivative
-using FastGaussQuadrature: gausslobatto
+using FastGaussQuadrature: gausslobatto, gausslegendre
 using LinearAlgebra: I, norm
 
 export lxf, hll
@@ -33,7 +33,7 @@ function lxf(eos::Tuple{T,T}, Q_l::Array{<:Any,1}, Q_r::Array{<:Any,1}, lambda) 
 end
 
 function lxf_pathcons(eos::Tuple{T,T}, Q_l::Array{<:Any,1}, Q_r::Array{<:Any,1}, path::Function, lambda) where {T<:EoS}
-  nodes, weights = gausslobatto(5)                       # for [-1,+1] interval
+  nodes, weights = gausslobatto(6)                       # for [-1,+1] interval
   nodes, weights = (nodes .+ 1.0) / 2.0, weights ./ 2.0  # for [0,1] interval
 
   A = Q -> noncons_flux(eos, Q)
@@ -90,7 +90,8 @@ function hll_pathcons(eos::Tuple{T,T}, Q_l::Array{<:Any,1}, Q_r::Array{<:Any,1},
   s_l = min(0, minimum(get_eigvals(eos, Q_m, n)), minimum(eigvals[1]))
   s_r = max(0, maximum(get_eigvals(eos, Q_m, n)), maximum(eigvals[2]))
 
-  nodes, weights = gausslobatto(5)                       # for [-1,+1] interval
+  # nodes, weights = gausslobatto(5)                       # for [-1,+1] interval
+  nodes, weights = gausslegendre(6)                       # for [-1,+1] interval
   nodes, weights = (nodes .+ 1.0) / 2.0, weights ./ 2.0  # for [0,1] interval
 
   function B_int(Q_l, Q_r)
@@ -109,20 +110,23 @@ function hll_pathcons(eos::Tuple{T,T}, Q_l::Array{<:Any,1}, Q_r::Array{<:Any,1},
 
   Q_hll = (Q_r * s_r - Q_l * s_l - path_int) / (s_r - s_l)
 
-  while true
-    Q_old = Q_hll
-    b_1 = B_int(Q_l, Q_hll)
-    b_2 = B_int(Q_hll, Q_r)
-    path_int = b_1 + b_2 + flux_mph(eos, Q_r) - flux_mph(eos, Q_l)
-    Q_hll = (Q_r * s_r - Q_l * s_l - path_int) / (s_r - s_l)
-    if norm(Q_old - Q_hll) < 1e-12
-      break
-    end
-  end
+  # while true
+  #   Q_old = Q_hll
+  #   b_1 = B_int(Q_l, Q_hll)
+  #   b_2 = B_int(Q_hll, Q_r)
+  #   path_int = b_1 + b_2 + flux_mph(eos, Q_r) - flux_mph(eos, Q_l)
+  #   Q_hll = (Q_r * s_r - Q_l * s_l - path_int) / (s_r - s_l)
+  #   if norm(Q_old - Q_hll) < 1e-12
+  #     break
+  #   end
+  # end
+  #
+  # # <<Потоки>>, $D^+$ и $D^-$
+  # dm = -s_l / (s_r - s_l) * path_int + s_l * s_r / (s_r - s_l) * (Q_r - Q_l)
+  # dp = s_r / (s_r - s_l) * path_int - s_l * s_r / (s_r - s_l) * (Q_r - Q_l)
 
-  # <<Потоки>>, $D^+$ и $D^-$
-  dm = -s_l / (s_r - s_l) * path_int + s_l * s_r / (s_r - s_l) * (Q_r - Q_l)
-  dp = s_r / (s_r - s_l) * path_int - s_l * s_r / (s_r - s_l) * (Q_r - Q_l)
+  dm = -s_l / (s_r - s_l) * (flux_mph(eos, Q_r) - flux_mph(eos, Q_l) + B_int(Q_l, Q_hll) + B_int(Q_hll, Q_r)) + s_l * s_r / (s_r - s_l) * (Q_r - Q_l)
+  dp = s_r / (s_r - s_l) * (flux_mph(eos, Q_r) - flux_mph(eos, Q_l) + B_int(Q_l, Q_hll) + B_int(Q_hll, Q_r)) - s_l * s_r / (s_r - s_l) * (Q_r - Q_l)
 
   return dm, dp
 end
