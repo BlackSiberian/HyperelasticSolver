@@ -14,7 +14,7 @@ include("./NumFluxes.jl")
 # Только то, что нужно в main.jl
 using .EquationsOfState: EoS, Barton2009
 # using .Hyperelasticity: prim2cons, cons2prim, initial_states, postproc_arrays
-using .HyperelasticityMPh: initial_states, cons2prim_mph, prim2cons_mph, get_eigvals#, postproc_arrays
+using .HyperelasticityMPh: initial_states, cons2prim_mph, prim2cons_mph, get_eigvals, cons2data_mph#, postproc_arrays
 using .NumFluxes: lxf, hll
 
 
@@ -66,12 +66,23 @@ Save the solution array `Q` to a `fname` file.
 """
 function save_data(fname::String, Q::Array{<:Any,2})
   io = open(fname, "w")
-  # write(io, "$t\n")
+  write(io, "$t\n")
   nx = size(Q)[2]
   write(io, "a1\tr1\tu11\tu21\tu31\tS1\tF111\tF211\tF311\tF121\tF221\tF321\tF131\tF231\tF331\ta2\tr2\tu12\tu22\tu32\tS2\tF112\tF212\tF312\tF122\tF222\tF322\tF132\tF232\tF332", "\n")
   for i in 1:nx
     P = cons2prim_mph(eos, Q[:, i])
     write(io, join(P, "\t"), "\n")
+  end
+  close(io)
+end
+
+function save_data_plt(fname::String, Q::Array{<:Any,2})
+  io = open(fname, "w")
+  nx = size(Q)[2]
+  write(io, "a1\tr1\tu11\tu21\tu31\tS1\tT111\tT211\tT311\tT121\tT221\tT321\tT131\tT231\tT331\ta2\tr2\tu12\tu22\tu32\tS2\tT112\tT212\tT312\tT122\tT222\tT322\tT132\tT232\tT332", "\n")
+  for i in 1:nx
+    D = cons2data_mph(eos, Q[:, i])
+    write(io, join(D, "\t"), "\n")
   end
   close(io)
 end
@@ -130,8 +141,8 @@ end
 # Выносим сюда, в одно место, постепенно, все основные параметры расчета.
 # Потом завернуть в структуру?
 # Set equation of state for each phase
-# eos = (Barton2009(), Barton2009(_rho0=8.93, _c0=6.22, _cv=9.0e-4, _t0=300, _b0=3.16, _alpha=1, _beta=3.577, _gamma=2.088))
-eos = (Barton2009(), Barton2009())
+eos = (Barton2009(), Barton2009(_rho0=8.93, _c0=6.22, _cv=9.0e-4, _t0=300, _b0=3.16, _alpha=1, _beta=3.577, _gamma=2.088))
+# eos = (Barton2009(), Barton2009())
 testcase = 6    # Select the test case
 
 log_freq = 100  # Log frequency
@@ -140,8 +151,8 @@ log_freq = 100  # Log frequency
 X = 1.0     # Coordinate boundary [m]
 T = 0.06    # Time boundary [1e-5 s]
 
-nx = 1000   # Number of steps on dimension coordinate
-cfl = 0.6   # Courant-Friedrichs-Levy number
+nx = 5000   # Number of steps on dimension coordinate
+cfl = 0.95  # Courant-Friedrichs-Levy number
 dt = 5 * 1e-6
 
 dx = X / nx # Coordinate step
@@ -238,10 +249,13 @@ while t < T
 
   @info msg
 
+  if step_num >= 3000
+    break
+  end
 end  # while t < T
 
 fname = joinpath(dir_name, "result.csv")
-save_data(fname, Q0)
+save_data_plt(fname, Q0)
 @info @sprintf("Result solution saved to: %s\n", fname)
 
 # ##############################################################################

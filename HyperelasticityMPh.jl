@@ -132,6 +132,41 @@ function cons2prim(eos::T, Q::Array{<:Any,1}) where {T<:EoS}
   return P
 end
 
+function cons2data_mph(eos::Tuple{T,T}, Q::Array{<:Any,1}) where {T<:EoS}
+  ph = (Q[i:i+15-1] for i in 1:15:length(Q))
+
+  D = vcat([cons2data(eos[i], Q) for (i, Q) in enumerate(ph)]...)
+  return D
+end
+
+function cons2data(eos::T, Q::Array{<:Any,1}) where {T<:EoS}
+  D = similar(Q)
+
+  frac = Q[1]
+ 
+  FQ = reshape(Q[7:15] ./ frac, (3, 3))
+  true_den = sqrt(det(FQ) / eos.rho0)
+  den = frac * true_den
+
+  vel = Q[3:5] / den
+  e_total = Q[6] / den
+  e_kin = sum(vel .^ 2) / 2
+  e_int = e_total - e_kin
+  def_grad = Q[7:15] / den
+
+  G = finger(def_grad)
+  ent = entropy(eos, e_int, G)
+  strs = stress(eos, ent, def_grad)
+
+  D[1] = frac
+  D[2] = true_den
+  D[3:5] = vel
+  D[6] = ent
+  D[7:15] = strs
+
+  return D
+end
+
 """
     flux_mph(eos::T, Q::Array{<:Any, 1}) where {T<:EoS}
 
@@ -260,7 +295,9 @@ function get_eigvals(eos::T, Q::Array{<:Any,1}, n::Array{<:Any,1}) where {T<:EoS
   # ac = acoustic(eos, P, n)
   # WARNING: Uncomment for new stress
   ac = acoustic(eos, P[6], P[7:15], n)
-  sound_spd = sqrt.(abs.(eigvals(ac)))
+  display(eigvals(ac))
+  # WARNING: No abs should be here. Eigvals must be non-negative
+  sound_spd = sqrt.(eigvals(ac))
   spd = dot(P[3:5], n)
   return vcat(spd .+ sound_spd, spd .- sound_spd)
 end
@@ -332,17 +369,17 @@ function initial_states(eos::Tuple{T,T}, testcase::Int) where {T<:EoS}
     alpha_r_1 = alpha_r_2 = 0.5
     den_1 = den_2 = 8.9
 
-    u_l_1 = u_l_2 = [2.0, 0.0, 0.1] # [km/s]
-    F_l = [1.0 0.0 0.0;
-      -0.01 0.95 0.02;
-      -0.015 0.0 0.9]
+    u_l_1 = u_l_2 = [0.0, 0.5, 1.0] # [km/s]
+    F_l = [0.98 0.0 0.0;
+      0.02 1.0 0.1;
+      0.0 0.0 1.0]
     F_l_1 = F_l_2 = F_l
-    S_l_1 = S_l_2 = 0.0 # [kJ/(g*K)]
+    S_l_1 = S_l_2 = 1.0e-3 # [kJ/(g*K)]
 
-    u_r_1 = u_r_2 = [0.0, -0.03, -0.01] # [km/s]
+    u_r_1 = u_r_2 = [0.0, 0.0, 0.0] # [km/s]
     F_r = [1.0 0.0 0.0;
-      0.015 0.95 0.0;
-      -0.01 0.0 0.9]
+      0.0 1.0 0.1;
+      0.0 0.0 1.0]
     F_r_1 = F_r_2 = F_r
     S_r_1 = S_r_2 = 0.0 # [kJ/(g*K)]
   elseif testcase == 6
@@ -350,7 +387,11 @@ function initial_states(eos::Tuple{T,T}, testcase::Int) where {T<:EoS}
     alpha_l_2 = 0.9
     alpha_r_1 = 0.9
     alpha_r_2 = 0.1
-    den_1 = den_2 = 8.9
+    # alpha_l_1 = 0.5
+    # alpha_l_2 = 0.5
+    # alpha_r_1 = 0.5
+    # alpha_r_2 = 0.5
+    den_1 = den_2 = 8.93
 
     u_l_1 = u_l_2 = [0.0, 0.5, 1.0] # [km/s]
     F_l = [0.98 0.0 0.0;
@@ -385,6 +426,39 @@ function initial_states(eos::Tuple{T,T}, testcase::Int) where {T<:EoS}
       -0.01 0.0 0.9]
     F_r_1 = F_r_2 = F_r
     S_r_1 = S_r_2 = 0.0 # [kJ/(g*K)]
+  elseif testcase == 8
+    alpha_l_1 = 1e-4
+    alpha_l_2 = 1 - 1e-4
+    alpha_r_1 = 1 - 1e-4
+    alpha_r_2 = 1e-4
+    den_1 = den_2 = 8.9
+
+    u_l_1 = u_l_2 = [0.0, 0.5, 1.0] # [km/s]
+    F_l = [0.98 0.0 0.0;
+      0.02 1.0 0.0;
+      0.0 0.0 1.0]
+    F_l_1 = F_l_2 = F_l
+    S_l_1 = S_l_2 = 1.0e-3 # [kJ/(g*K)]
+
+    u_r_1 = u_r_2 = [0.0, 0.0, 0.0] # [km/s]
+    F_r = [1.0 0.0 0.0;
+      0.0 1.0 0.0;
+      0.0 0.0 1.0]
+    F_r_1 = F_r_2 = F_r
+    S_r_1 = S_r_2 = 0.0 # [kJ/(g*K)]
+  elseif testcase == 9
+    alpha_l_1 = alpha_r_1 = 0.5
+    alpha_l_2 = alpha_r_2 = 0.5
+
+    den_1 = den_2 = 5.0
+
+    u_l_1 = u_l_2 = [1.0, 0, 0]
+    u_r_1 = u_r_2 = [0, 0, 0]
+
+    S_l_1 = S_l_2 = S_r_1 = S_r_2 = 0
+
+    F_l_1 = F_l_2 = F_r_1 = F_r_2 = [1 0 0; 0 1 0; 0 0 1]
+
 
   elseif testcase == 10
     alpha_l_1 = 0.4
@@ -406,6 +480,18 @@ function initial_states(eos::Tuple{T,T}, testcase::Int) where {T<:EoS}
       -0.015 0.0 0.9]
     F_r_1 = F_r_2 = F_r
     S_r_1 = S_r_2 = 0.0
+  elseif testcase == 11
+    alpha_l_1 = alpha_r_1 = 0.5
+    alpha_l_2 = alpha_r_2 = 0.5
+
+    den_1 = den_2 = 5.0
+
+    u_l_1 = u_l_2 = u_r_1 = u_r_2 = [1.0, 0, 0]
+
+    S_l_1 = S_l_2 = S_r_1 = S_r_2 = 0
+
+    F_l_1 = F_l_2 = [1 0 0; 0 1 0; 0 0 1]
+    F_r_1 = F_r_2 = [1.2 0 0; 0 1.2 0; 0 0 1.2]
   else
   end
 

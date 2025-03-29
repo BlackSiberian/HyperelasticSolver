@@ -95,6 +95,12 @@ for i in range(3):
     vel_plt[i][0].savefig(plotpath + f'velocity_{i+1}.png')
 ent_plt[0].savefig(plotpath + 'entropy.png')
 
+# frac_plt[0].savefig(plotpath + 'fraction.eps', format="eps")
+# den_plt[0].savefig(plotpath + 'density.eps', format="eps")
+# for i in range(3):
+#     vel_plt[i][0].savefig(plotpath + f'velocity_{i+1}.eps', format="eps")
+# ent_plt[0].savefig(plotpath + 'entropy.eps', format="eps")
+
 # for i in range(3):
 #     plt.plot(X, frac[1] * vel[1][:, i] + frac[0] * vel[0][:, i])
 #     plt.title(f'Weighted velocity {i+1}')
