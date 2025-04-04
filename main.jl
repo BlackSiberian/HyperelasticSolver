@@ -10,13 +10,14 @@ include("./EquationsOfState.jl")
 # include("./Hyperelasticity.jl")
 include("./HyperelasticityMPh.jl")
 include("./NumFluxes.jl")
+include("./Relaxation.jl")
 
 # Только то, что нужно в main.jl
 using .EquationsOfState: EoS, Barton2009
 # using .Hyperelasticity: prim2cons, cons2prim, initial_states, postproc_arrays
 using .HyperelasticityMPh: initial_states, cons2prim_mph, prim2cons_mph, get_eigvals, cons2data_mph#, postproc_arrays
 using .NumFluxes: lxf, hll
-
+using .Relaxation: relaxation
 
 """
     update_cell(Q::Array{<:Any,2}, flux_num::Function, lambda, eos::T) where {T <: EoS}
@@ -151,7 +152,7 @@ log_freq = 100  # Log frequency
 X = 1.0     # Coordinate boundary [m]
 T = 0.06    # Time boundary [1e-5 s]
 
-nx = 5000   # Number of steps on dimension coordinate
+nx = 500    # Number of steps on dimension coordinate
 cfl = 0.95  # Courant-Friedrichs-Levy number
 dt = 5 * 1e-6
 
@@ -235,7 +236,11 @@ while t < T
     # Q1[:, i] = update_cell(Q0[:, i-1:i+1], lxf, eigvals[i-1:i+1], dx / dt, eos)
     Q1[:, i] = update_cell(Q0[:, i-1:i+1], hll, eigvals[i-1:i+1], dt / dx, eos)
   end
-  global Q0 = copy(Q1)
+  Q2 = similar(Q0)
+  Threads.@threads for i in 1:nx
+    Q2[:, i] = relaxation(eos, Q1[:, i], dt)
+  end
+  global Q0 = copy(Q2)
 
   # Saving the solution array to a file
   msg = @sprintf("Step = %d,\t t = %.6f / %.6f,\t Δt = %.6f\n",

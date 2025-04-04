@@ -295,7 +295,6 @@ function get_eigvals(eos::T, Q::Array{<:Any,1}, n::Array{<:Any,1}) where {T<:EoS
   # ac = acoustic(eos, P, n)
   # WARNING: Uncomment for new stress
   ac = acoustic(eos, P[6], P[7:15], n)
-  display(eigvals(ac))
   # WARNING: No abs should be here. Eigvals must be non-negative
   sound_spd = sqrt.(eigvals(ac))
   spd = dot(P[3:5], n)
