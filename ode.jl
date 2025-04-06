@@ -40,8 +40,6 @@ xi = 1e6
 chi = 1e6
 phi = 1e6
 
-relaxation(Q0, 0.0, 0.0)
-
 #Define the problem
 
 function relaxation(Q::Array{<:Any,1}, p, t::Float64)
@@ -108,11 +106,3 @@ display(solution)
 plot(solution.t, [u[3] for u in solution.u] ./ [u[2] for u in solution.u], title="uₓ", label="Phase 1")
 plot!(solution.t, [u[18] for u in solution.u] ./ [u[17] for u in solution.u], label="Phase 2")
 
-# TODO: control sum of S at start and at end
-
-# TODO: graph vel, stresses
-# TODO: graph norma of vel[1] and vel[2]
-# TODO: graph of temps or enthropy
-# TODO: graph of stress of pressure and deviator (shear stress (Von-Mises effective yield criterion))
-# TODO: nice graphs for articles
-# TODO: describe 

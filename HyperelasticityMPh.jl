@@ -413,7 +413,7 @@ function initial_states(eos::Tuple{T,T}, testcase::Int) where {T<:EoS}
     den_1 = den_2 = 8.9
 
     u_l_1 = u_l_2 = [2.0, 0.0, 0.1] # [km/s]
-    F_l = [1.0 0.0 0.0;
+    F_l = 1.2 .* [1.0 0.0 0.0;
       -0.01 0.95 0.02;
       -0.015 0.0 0.9]
     F_l_1 = F_l_2 = F_l

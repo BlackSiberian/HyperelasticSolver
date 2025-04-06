@@ -20,12 +20,16 @@ function relaxation(eos::Tuple{T,T}, initial::Array{<:Any,1}, dt) where {T <: Eo
     # tau_a = 1e-6
     # tau_u = 1e-6
     # tau_t = 1e-6
-    tau_a = dt / 10
+    tau_a = dt * 50
     tau_u = dt / 10
-    tau_t = dt / 10
+    tau_t = dt * 50
+
+    # tau_a = 1e10
+    # tau_t = 1e10
 
     problem = ODEProblem(init_relaxation, initial, t_span, (eos, tau_a, tau_u, tau_t))
     solution = solve(problem, TRBDF2(), dtmax= min(tau_a, tau_u, tau_t) / 10)
+    return solution
     return solution.u[end]
 end
 
@@ -37,6 +41,12 @@ function init_relaxation(Q::Array{<:Any,1}, params, t::Float64)
     frac = [Q[p][1] for p in 1:nph]
 
     FQ = [reshape(Q[p][7:15] ./ frac[p], (3, 3)) for p in 1:nph]
+    if (det(FQ[1]) / eos[1].rho0 < 0)
+        print("Negative sqrt: ", det(FQ[1]) / eos[1].rho0)
+    end
+    if (det(FQ[2]) / eos[2].rho0 < 0)
+        print("Negative sqrt: ", det(FQ[2]) / eos[2].rho0)
+    end
     true_den = [sqrt(det(FQ[p]) / eos[p].rho0) for p in 1:nph]
     den = frac .* true_den
 
@@ -69,12 +79,13 @@ function init_relaxation(Q::Array{<:Any,1}, params, t::Float64)
         S[shift + 2] = 0
         S[shift + 3: shift + 5] = [1/tau_u* (vel[3-p][i] - vel[p][i]) for i in 1:3]
         S[shift + 6] = 1/tau_u * sum([w[k] * (vel[3-p][k] - vel[p][k]) for k in 1:3]) + 1/3 / tau_a * pi * tr_(K[p] - K[3-p]) + 1/tau_t * (temp[3-p] - temp[p])
-        S[shift + 7:shift + 15] = [1/9 / tau_a * true_den[p] * def_grad[p][i] * tr_(K[3-p] - K[p]) for i in 1:9]
+        S[shift + 7: shift + 15] = [1/9 / tau_a * true_den[p] * def_grad[p][i] * tr_(K[3-p] - K[p]) for i in 1:9]
     end
     # Sum syncronnically
     # println("Sum of righthand side is ", (sum([S[i] + S[i + 15] for i in 1:15])))
     # TODO: Exception if not zero
     return S
+    # TODO: control sum of S at start and at end
 end
 
 end # module Relaxation
