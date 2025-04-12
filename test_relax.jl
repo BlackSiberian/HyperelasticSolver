@@ -8,7 +8,7 @@ include("./NumFluxes.jl")
 include("./Relaxation.jl")
 
 # Только то, что нужно в main.jl
-using .EquationsOfState: entropy, EoS, Barton2009, stress, energy 
+using .EquationsOfState: entropy, EoS, Barton2009, stress, energy
 # using .Hyperelasticity: prim2cons, cons2prim, initial_states, postproc_arrays
 using .HyperelasticityMPh
 using .NumFluxes
@@ -33,7 +33,7 @@ Ql, Qr = initial_states(eos, 7)
 Q0 = Array{Float64}(undef, 30)
 Q0[1:15] = Ql[1:15]
 Q0[16:30] = Qr[1:15]
-dt=1e-5
+dt = 1e-5
 
 sol = relaxation(eos, Q0, dt)
 # display(sol)
@@ -42,7 +42,7 @@ sol = relaxation(eos, Q0, dt)
 # plot(sol.t, [u[3] for u in sol.u] ./ [u[2] for u in sol.u], title="uₓ", label="Phase 1")
 # plot!(sol.t, [u[18] for u in sol.u] ./ [u[17] for u in sol.u], label="Phase 2")
 
- 
+
 Q = [[Q[p:p+14] for p in 1:15:length(Q)] for Q in sol.u]
 nt = length(sol.u)
 nph = length(Q[1])
@@ -67,12 +67,28 @@ temp = [[derivative(S -> energy(eos[p], S, G[t][p]), ent[t][p]) for p in 1:nph] 
 println(temp[1][1], "\t", temp[1][2])
 println(temp[end][1], "\t", temp[end][2])
 
-pres = [[- 1/3 / frac[t][p]* tr(strs[t][p]) for p in 1:nph] for t in 1:nt]
+pres = [[-1 / 3 / frac[t][p] * tr(strs[t][p]) for p in 1:nph] for t in 1:nt]
+
+vonMises = [[sqrt(
+  ((strs[t][p][1][1] - strs[t][p][2][2])^2
+   + (strs[t][p][2][2] - strs[t][p][3][3])^2
+   + (strs[t][p][3][3] - strs[t][p][1][1])^2
+   + 6 * (strs[t][p][1][2]^2 + strs[t][p][2][3]^2 + strs[t][p][3][1]^2))
+  /
+  2) for p in 1:nph] for t in 1:nt]
 
 for i in 1:3
-    plot(sol.t, [_vel[1][i] for _vel in vel[:]], title="u_$i", label="Phase 1")
-    plot!(sol.t, [_vel[2][i] for _vel in vel[:]], label="Phase 2")
-    savefig("Velocity_$i.png")
+  plot(sol.t, [_vel[1][i] for _vel in vel[:]], title="u_$i", label="Phase 1")
+  plot!(sol.t, [_vel[2][i] for _vel in vel[:]], label="Phase 2")
+  savefig("Velocity_$i.png")
+end
+
+for i in 1:3
+  for j in 1:i
+    plot(sol.t, [_strs[1][i][j] for _strs in strs[:]], title="stress_$i$j", label="Phase 1")
+    plot!(sol.t, [_strs[2][i][j] for _strs in strs[:]], label="Phase 2")
+    savefig("Stress_$i$j")
+  end
 end
 
 plot(sol.t, [_temp[1] for _temp in temp[:]], title="temperature", label="Phase 1")
@@ -80,23 +96,20 @@ plot!(sol.t, [_temp[2] for _temp in temp[:]], label="Phase 2")
 savefig("Temperature.png")
 
 plot(sol.t, [_pres[1] for _pres in pres[:]], title="pressure", label="Phase 1")
-plot!(sol.t, [_pres[2] for _pres in pres[:]], label = "Phase 2")
+plot!(sol.t, [_pres[2] for _pres in pres[:]], label="Phase 2")
 savefig("Pressure.png")
 
 plot(sol.t, [_true_den[1] for _true_den in true_den[:]], title="true density", label="Phase 1")
 plot!(sol.t, [_true_den[2] for _true_den in true_den[:]], label="Phase 2")
 savefig("True_density.png")
 
-# plot(sol.t, vonMises[:][1], title="Von-Mises", label="Phase 1")
-# plot!(sol.t, vonMises[:][2], label="Phase 2")
+plot(sol.t, [_vonMises[:][1] for _vonMises in vonMises[:]], title="Von-Mises", label="Phase 1")
+plot!(sol.t, [_vonMises[:][2] for _vonMises in vonMises[:]], label="Phase 2")
 
 plot(sol.t, [_frac[1] for _frac in frac[:]], title="Fraction", label="Phase 1")
 plot!(sol.t, [_frac[2] for _frac in frac[:]], label="Phase 2")
 savefig("fracture.png")
 
-# TODO: graph vel, stresses
-# TODO: graph norma of vel[1] and vel[2]
-# TODO: graph of temps or enthropy
 # TODO: graph of stress of pressure and deviator (shear stress (Von-Mises effective yield criterion))
 # TODO: nice graphs for articles
-# TODO: describe 
+# TODO: describe
