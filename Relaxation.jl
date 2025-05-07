@@ -29,7 +29,7 @@ function relaxation(eos::Tuple{T,T}, initial::Array{<:Any,1}, dt) where {T <: Eo
 
     problem = ODEProblem(init_relaxation, initial, t_span, (eos, tau_a, tau_u, tau_t))
     solution = solve(problem, TRBDF2(), dtmax= min(tau_a, tau_u, tau_t) / 10)
-    return solution
+    # return solution
     return solution.u[end]
 end
 

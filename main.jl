@@ -142,11 +142,11 @@ end
 # Выносим сюда, в одно место, постепенно, все основные параметры расчета.
 # Потом завернуть в структуру?
 # Set equation of state for each phase
-eos = (Barton2009(), Barton2009(_rho0=8.93, _c0=6.22, _cv=9.0e-4, _t0=300, _b0=3.16, _alpha=1, _beta=3.577, _gamma=2.088))
-# eos = (Barton2009(), Barton2009())
-testcase = 6    # Select the test case
+# eos = (Barton2009(), Barton2009(_rho0=8.93, _c0=6.22, _cv=9.0e-4, _t0=300, _b0=3.16, _alpha=1, _beta=3.577, _gamma=2.088))
+eos = (Barton2009(), Barton2009())
+testcase = 11   # Select the test case
 
-log_freq = 100  # Log frequency
+log_freq = 10   # Log frequency
 
 
 X = 1.0     # Coordinate boundary [m]

@@ -386,10 +386,6 @@ function initial_states(eos::Tuple{T,T}, testcase::Int) where {T<:EoS}
     alpha_l_2 = 0.9
     alpha_r_1 = 0.9
     alpha_r_2 = 0.1
-    # alpha_l_1 = 0.5
-    # alpha_l_2 = 0.5
-    # alpha_r_1 = 0.5
-    # alpha_r_2 = 0.5
     den_1 = den_2 = 8.93
 
     u_l_1 = u_l_2 = [0.0, 0.5, 1.0] # [km/s]
@@ -483,14 +479,15 @@ function initial_states(eos::Tuple{T,T}, testcase::Int) where {T<:EoS}
     alpha_l_1 = alpha_r_1 = 0.5
     alpha_l_2 = alpha_r_2 = 0.5
 
-    den_1 = den_2 = 5.0
+    den_1 = den_2 = 8.93
 
-    u_l_1 = u_l_2 = u_r_1 = u_r_2 = [1.0, 0, 0]
+    u_l_1 = u_l_2 = [0, -0.010, 0]
+    u_r_1 = u_r_2 = [0, 0.010, 0]
 
-    S_l_1 = S_l_2 = S_r_1 = S_r_2 = 0
+    S_l_1 = S_l_2 = S_r_1 = S_r_2 = 1.0e-2
 
     F_l_1 = F_l_2 = [1 0 0; 0 1 0; 0 0 1]
-    F_r_1 = F_r_2 = [1.2 0 0; 0 1.2 0; 0 0 1.2]
+    F_r_1 = F_r_2 = [1 0 0; 0 1 0; 0 0 1]
   else
   end
 
