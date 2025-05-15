@@ -7,15 +7,15 @@ using Logging, LoggingExtras
 include("./SimpleLA.jl")
 include("./Strains.jl");
 include("./EquationsOfState.jl")
-# include("./Hyperelasticity.jl")
-include("./HyperelasticityMPh.jl")
+include("./Hyperelasticity.jl")
+# include("./HyperelasticityMPh.jl")
 include("./NumFluxes.jl")
 include("./Relaxation.jl")
 
 # Только то, что нужно в main.jl
 using .EquationsOfState: EoS, Barton2009
-# using .Hyperelasticity: prim2cons, cons2prim, initial_states, postproc_arrays
-using .HyperelasticityMPh: initial_states, cons2prim_mph, prim2cons_mph, get_eigvals, cons2data_mph#, postproc_arrays
+using .Hyperelasticity: prim2cons, cons2prim, initial_states, get_eigvals#, postproc_arrays
+# using .HyperelasticityMPh: initial_states, cons2prim_mph, prim2cons_mph, get_eigvals, cons2data_mph#, postproc_arrays
 using .NumFluxes: lxf, hll
 using .Relaxation: relaxation
 
@@ -28,19 +28,18 @@ Returns the value of quantity in the cell to the next time layer using
 `lambda` is the value of `Δx/Δt`
 """
 # ### Old Lax-Friedrichs method
-function update_cell(Q::Array{<:Any,2}, flux_num::Function, lambda, eos::Tuple{T,T}) where {T<:EoS}
+# function update_cell(Q::Array{<:Any,2}, flux_num::Function, lambda, eos::Tuple{T,T}) where {T<:EoS}
+function update_cell(Q::Array{<:Any,2}, flux_num::Function, lambda, eos::T) where {T<:EoS}
   Q_l, Q, Q_r = Q[:, 1], Q[:, 2], Q[:, 3]
 
   # For onephase
-  # F_l = flux_num(eos, Q_l, Q, lambda)
-  # F_r = flux_num(eos, Q, Q_r, lambda)
-  # return Q - 1.0 / lambda * (F_r - F_l)
-
-  F_l, _, NF_l = flux_num(eos, Q_l, Q, lambda)
-  F_r, NF_r, _ = flux_num(eos, Q, Q_r, lambda)
-  return Q - 1.0 / lambda * ((F_r - F_l) + (NF_r + NF_l))
+  F_l = flux_num(eos, Q_l, Q, lambda)
+  F_r = flux_num(eos, Q, Q_r, lambda)
+  return Q - 1.0 / lambda * (F_r - F_l)
 end
 ###
+
+# Only multiphase
 function update_cell(Q::Array{<:Any,2}, flux_num::Function, eigvals::Array{<:Any,1}, dtdx, eos::Tuple{T,T}) where {T<:EoS}
   Q_l, Q, Q_r = Q[:, 1], Q[:, 2], Q[:, 3]
   # # For Rusanov method
@@ -69,9 +68,11 @@ function save_data(fname::String, Q::Array{<:Any,2})
   io = open(fname, "w")
   write(io, "$t\n")
   nx = size(Q)[2]
-  write(io, "a1\tr1\tu11\tu21\tu31\tS1\tF111\tF211\tF311\tF121\tF221\tF321\tF131\tF231\tF331\ta2\tr2\tu12\tu22\tu32\tS2\tF112\tF212\tF312\tF122\tF222\tF322\tF132\tF232\tF332", "\n")
+  # write(io, "a1\tr1\tu11\tu21\tu31\tS1\tF111\tF211\tF311\tF121\tF221\tF321\tF131\tF231\tF331\ta2\tr2\tu12\tu22\tu32\tS2\tF112\tF212\tF312\tF122\tF222\tF322\tF132\tF232\tF332", "\n")
+  write(io, "u1\tu2\tu3\tS\tF11\tF21\tF31\tF12\tF22\tF32\tF13\tF23\tF33")
   for i in 1:nx
-    P = cons2prim_mph(eos, Q[:, i])
+    # P = cons2prim_mph(eos, Q[:, i])
+    P = cons2prim(eos, Q[:, i])
     write(io, join(P, "\t"), "\n")
   end
   close(io)
@@ -95,12 +96,14 @@ Read the solution array from a `fname` file.
 """
 function read_data(fname::String)
   data = readlines(fname)
-  nx = length(data) - 1
-  P = Array{Float64}(undef, 30, nx)
-  for (indx, line) in enumerate(data[2:end])
+  nx = length(data) - 2
+  t = parse(Float64, data[1])
+  # P = Array{Float64}(undef, 30, nx)
+  P = Array{Float64}(undef, 13, nx)
+  for (indx, line) in enumerate(data[3:end])
       P[:, indx] = parse.(Float64, split(line))
   end
-  return P, nx
+  return P, t, nx
 end
 
 """
@@ -109,8 +112,9 @@ end
 Sets the initial condition with two states for the Riemann problem with `nx` cells.
 """
 function initial_condition(Ql, Qr, nx)
-  # Эта функция ничего не знает про физику, но знает про сетку.   
-  Q = Array{Float64}(undef, 30, nx)
+  # Эта функция ничего не знает про физику, но знает про сетку.
+  # Q = Array{Float64}(undef, 30, nx)
+  Q = Array{Float64}(undef, 13, nx)
   for i in 1:nx
     Q[:, i] = (i - 1) < nx / 2 ? Ql : Qr
   end
@@ -143,8 +147,9 @@ end
 # Потом завернуть в структуру?
 # Set equation of state for each phase
 # eos = (Barton2009(), Barton2009(_rho0=8.93, _c0=6.22, _cv=9.0e-4, _t0=300, _b0=3.16, _alpha=1, _beta=3.577, _gamma=2.088))
-eos = (Barton2009(), Barton2009())
-testcase = 11   # Select the test case
+# eos = (Barton2009(), Barton2009())
+eos = Barton2009()
+testcase = 4    # Select the test case
 
 log_freq = 10   # Log frequency
 
@@ -196,11 +201,13 @@ else
   @info @sprintf("Found file: %s\n", last_file)
   global step_num = parse(Int, split(split(basename(last_file), ".")[1], "_")[2]) # Initilization of step counter
   global t = step_num * dt
-  P0 = Array{Float64}(undef, 30, nx)
+  # P0 = Array{Float64}(undef, 30, nx)
+  P0 = Array{Float64}(undef, 13, nx)
   global Q0 = similar(P0)
-  P0, nx = read_data(last_file) # Read the last file
+  P0, t, nx = read_data(last_file) # Read the last file
   for i in 1:nx
-    Q0[:, i] = prim2cons_mph(eos, P0[:, i])
+    # Q0[:, i] = prim2cons_mph(eos, P0[:, i])
+    Q0[:, i] = prim2cons(eos, P0[:, i])
   end
 end
 
@@ -232,20 +239,20 @@ while t < T
   Q1[:, end] = Q0[:, end]
   Threads.@threads for i in 2:nx-1
     # Old LxF method call
-    # Q1[:, i] = update_cell(Q0[:, i-1:i+1], lxf, dx / dt, eos)
+    Q1[:, i] = update_cell(Q0[:, i-1:i+1], lxf, dx / dt, eos)
     # Q1[:, i] = update_cell(Q0[:, i-1:i+1], lxf, eigvals[i-1:i+1], dx / dt, eos)
-    Q1[:, i] = update_cell(Q0[:, i-1:i+1], hll, eigvals[i-1:i+1], dt / dx, eos)
+    # Q1[:, i] = update_cell(Q0[:, i-1:i+1], hll, eigvals[i-1:i+1], dt / dx, eos)
   end
-  Q2 = similar(Q0)
-  Threads.@threads for i in 1:nx
-    Q2[:, i] = relaxation(eos, Q1[:, i], dt)
-  end
-  global Q0 = copy(Q2)
+  # Q2 = similar(Q0)
+  # Threads.@threads for i in 1:nx
+  #   Q2[:, i] = relaxation(eos, Q1[:, i], dt)
+  # end
+  # global Q0 = copy(Q2)
+  global Q0 = copy(Q1)
+
+  msg = @sprintf("Step = %d,\t t = %.6f / %.6f,\t Δt = %.6f\n", step_num, t, T, dt)
 
   # Saving the solution array to a file
-  msg = @sprintf("Step = %d,\t t = %.6f / %.6f,\t Δt = %.6f\n",
-    step_num, t, T, dt)
-
   if step_num % log_freq == 0
     global fname = joinpath(dir_name, get_filename(step_num))
     save_data(fname, Q0)
@@ -260,7 +267,8 @@ while t < T
 end  # while t < T
 
 fname = joinpath(dir_name, "result.csv")
-save_data_plt(fname, Q0)
+# save_data_plt(fname, Q0)
+save_data(fname, Q0)
 @info @sprintf("Result solution saved to: %s\n", fname)
 
 # ##############################################################################

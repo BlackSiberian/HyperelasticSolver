@@ -1,117 +1,112 @@
 #
 # Hyperelasticity.jl
 #
-#
 # Hyperelastic GPR model as in Barton2002.
-#
-#
-#
 
 module Hyperelasticity
-import LinearAlgebra: det
 
-#include("./EquationsOfState.jl")
-using ..EquationsOfState: density, energy, entropy, stress, EoS, Barton2009
+import LinearAlgebra: det, eigvals, dot
 
+using ..EquationsOfState: density, acoustic, energy, entropy, stress, EoS, Barton2009
 using ..Strains: finger, invariants
 
-export flux, initial_states, postproc_arrays
+export prim2cons, cons2prim, flux, initial_states, postproc_arrays, get_eigvals
 
 
 """
-    Translates conservative variables to primitive variables.
-    @param Q is the conservative variables vector
+    cons2prim(eos::T, Q::Array{<:Any, 1}) where {T<:EoS}
+
+Converts conservative variables to primitive variables
+for onephase hyperelasticity with `eos` equation of state.
 """
-function cons2prim(Q::Array{<:Any,1})
-    FQ = [ Q[4]  Q[5]  Q[6];                              
-           Q[7]  Q[8]  Q[9];
-           Q[10] Q[11] Q[12]] 
-    den = density(Q[4:12])
-    vel = Q[1:3] ./ den
-    F = FQ ./ den
-    E = Q[13] / den
-    e_kin = 0.5 * (vel[1]^2 + vel[2]^2 + vel[3]^2)
-    e_int = E - e_kin
-    return [den, vel, F, e_int]
+function cons2prim(eos::T, Q::Array{<:Any,1}) where {T<:EoS}
+  P = similar(Q)
+
+  FQ = reshape(Q[5:13], (3, 3))
+  den = sqrt(det(FQ) / eos.rho0)
+  vel = Q[1:3] / den
+  e_total = Q[4] / den
+  e_kin = sum(vel .^ 2) / 2
+  e_int = e_total - e_kin
+  def_grad = Q[5:13] / den
+
+  G = finger(def_grad)
+  ent = entropy(eos, e_int, G)
+
+  P[1:3] = vel
+  P[4] = ent
+  P[5:13] = def_grad
+  return P
 end
 
 
 """
-    Translates primitive variables to conservative variables
-    @param vel is the velocity vector
-    @param S is the entropy
-    FIXME: Здесь F --- 3 на 3, но некоторые функции требуют линейного массива
-    длиной 9. Нужно все согласовать, то есть сверху передавать толко
-    линейный
-    или только массив 3 на 3.
+    prim2cons(eos::T, P::Array{<:Any, 1}) where {T<:EoS}
 
-    Линейный массив упорядочен по строкам.
-
-    Это должно быть отражено в типе параметра.
-
-    Если тут передавать линейный массив, то можно использовать density
-    из EquationsOfState.jl 
-    ---- нельзя, так как требуется rho * F, а здесь просто F.
-    Но можно переопределить ее по типу, если сделать типы тензоров.
-
-    Текущее решение:
-        Не меняем интерфейсы, делаем reshape каждый раз, когда нужно
-
-    @param: F is [3,3] array
-
-    !
-    ! Вообще, эта функция должна получать на вход дин вектор длиной 13
-    ! и одавать второй вектор длиной 13
-    !
-
+Converts primitive variables to conservative variables for onephase
+hyperelasticity with `eos` equation of state.
 """
-# Cложные типы для скорости и тензора нужны, чтобы проверялись размерности.
-# Далее это бдует нужно для правильной параметризации.
-function prim2cons(eos::T, vel::Array{<:Any,1}, F::Array{<:Any,2}, S) where {T <: EoS}
-    Q = Array{Float64}(undef, 13)
+function prim2cons(eos::T, P::Array{<:Any,1}) where {T<:EoS}
+  Q = similar(P)
 
-    # ALERT:
-    # TODO:
-    # FIXME:
-    #     Из-за rho0 сецйча сюда трябуется тянуть ::EoS.
-    #     Этого можно избежать, если иметь  два метода:
-    #     density(F::DefGrad) и density(F:Finger)
-    den = eos.rho0 / det(F)
-    
-    Q[1:3] = den .* vel
-    for i in 1:3
-        for j in 1:3
-            Q[3*i + j] = den * F[i, j]
-        end
-    end
-    e_kin = 0.5 * (vel[1]^2 + vel[2]^2 + vel[3]^2)
-    G = finger(F) 
-    i = invariants(G)
-    E = energy(S, i) + e_kin
-    Q[13] = den * E
-    return Q
+  vel = P[1:3]
+  entropy = P[4]
+  def_grad = P[5:13]
+  den = eos.rho0 / det(reshape(def_grad, (3,3)))
+
+  G = finger(def_grad)
+  e_int = energy(eos, entropy, G)
+  e_kin = sum(vel .^ 2) / 2
+  e_total = e_int + e_kin
+
+  Q[1:3] = den * vel
+  Q[4] = den * e_total
+  Q[5:13] = den * def_grad
+  return Q
 end
 
 """
-    Returns the value of the physical flux in Q.
-    @param Q is the conservative variables vector.
-"""
-function flux(Q::Array{<:Any,1}) 
-    den, vel, F, e_int = cons2prim(Q)
-    sigma = stress(den, e_int, F)
+    flux(eos::T, Q::Array{<:Any, 1}) where {T<:EoS}
 
-    flux = similar(Q)
-    for i in 1:3
-        flux[i] = den * vel[1] * vel[i] - sigma[1, i]
-        flux[i+3] = 0
-        flux[i+6] = den * (F[2, i] * vel[1] - F[1, i] * vel[2])
-        flux[i+9] = den * (F[3, i] * vel[1] - F[1, i] * vel[3])
-    end
-    e_kin = 0.5 * (vel[1]^2 + vel[2]^2 + vel[3]^2)
-    E = e_int + e_kin
-    flux[13] = den * vel[1] * E - vel[1] * sigma[1, 1] - vel[2] * sigma[1, 2] - vel[3] * sigma[1, 3]
-    return flux
+Computes the physical flux for onephase hyperelasticity with `eos` equation of state.
+"""
+function flux(eos::T, Q::Array{<:Any,1}) where {T<:EoS}
+  flux = similar(Q)
+
+  FQ = reshape(Q[5:13], (3, 3))
+  den = sqrt(det(FQ) / eos.rho0)
+
+  vel = Q[1:3] / den
+  e_total = Q[4] / den
+  e_kin = sum(vel .^ 2) / 2
+  e_int = e_total - e_kin
+  def_grad = Q[5:13] / den
+
+  G = finger(def_grad)
+  ent = entropy(eos, e_int, G)
+  strs = stress(eos, ent, def_grad)
+
+  flux[1:3] = den * vel[1] * vel - strs[begin:3:end]
+  flux[4] = den * vel[1] * e_total - sum(vel .* strs[begin:3:end])
+  flux[5:13] = den .* (vel[1] .* def_grad - (vel*transpose(def_grad[begin:3:end]))[:])
+
+  return flux
 end
+
+function get_eigvals(eos::T, Q::Array{<:Any,1}, n::Array{<:Any,1}) where {T<:EoS}
+  P = cons2prim(eos, Q)
+  vel = P[1:3]
+  ent = P[4]
+  def_grad = P[5:13]
+
+  ac = acoustic(eos, ent, def_grad, n)
+  # WARNING: No abs should be here. Eigvals must be non-negative
+  sound_spd = sqrt.(eigvals(ac))
+  spd = dot(vel, n)
+  return vcat(spd .+ sound_spd, spd .- sound_spd)
+end
+
+
 
 # ##############################################################################
 # Начальные условия и вывод.
@@ -152,23 +147,32 @@ function initial_states(eos::T, testcase::Int) where {T <: EoS}
                0.5*3^0.5    0.5         0.0;
                0.0          0.0         1.0]
         S_l = 0.0 # [kJ/(g*K)]
-        
         u_r = [1.0, 0.0, 0.0] # [km/s]
         F_r = [0.5       -0.5*3^0.5     0.0;
                0.5*3^0.5    0.5         0.0;
                0.0          0.0         1.0]
         S_r = 0.0 # [kJ/(g*K)]
-    else 
+  elseif testcase == 4
+    u_l = [0, -0.01, 0]
+    F_l = [1 0 0; 0 1 0; 0 0 1]
+    S_l = 1e-2
+
+    u_r = [0, 0.01, 0]
+    F_r = [1 0 0; 0 1 0; 0 0 1]
+    S_r = 1e-2
+    else
         u_l = u_r = zeros(3)
-        F_l = F_r = Array{Float64}(I, 3, 3)
+        F_l = F_r = [1 0 0; 0 1 0; 0 0 1]
         S_l = S_r = 0.0
     end
 
+    P_l = [u_l..., S_l, F_l...]
+    P_r = [u_r..., S_r, F_r...]
 
-    Ql = prim2cons(eos, u_l, F_l, S_l)
-    Qr = prim2cons(eos, u_r, F_r, S_r)
+    Q_l = prim2cons(eos, P_l)
+    Q_r = prim2cons(eos, P_r)
 
-    return Ql, Qr
+    return Q_l, Q_r
 end # initial_states(eos::T, testcase::Int) where {T<:EoS}
 
 
@@ -177,33 +181,33 @@ end # initial_states(eos::T, testcase::Int) where {T<:EoS}
     Расчет значений массивов для визуализации.
     Возвращает сам массив и тюпл с аннотациями для переменных.
 """
-function postproc_arrays(Q0)
-    nx = size(Q0)[2] 
-    den  = Array{Float64}(undef, nx)
-    ent  = Array{Float64}(undef, nx)
-    vel  = Array{Float64, 2}(undef, 3, nx)
-    strs = Array{Float64, 3}(undef, 3, 3, nx)
-    eint = Array{Float64}(undef, nx)
-    
-    for i in 1:size(Q0,2)
-        Q = Q0[:, i]
-        den[i], vel[:, i], F, e_int = cons2prim(Q)    # cons2prim должно возвращать вектор
-        local sigma = stress(den[i], e_int, F)        # stress должно возвращать вектор
-        
-        # Это не нужно,
-        # invariants _уже умеет_ тензор как массив 3 на 3 и как строку длины 9
-        for j in 1:3
-            for k in 1:3
-                strs[j, k, i] = sigma[k, j]
-            end
-        end
-        ent[i] = entropy(e_int, invariants(finger(F)))
-        eint[i] = e_int
-    end
-
-    info = ("den", "ent", "vel", "strs", "eint", "info")
-    return den, ent, vel, strs, eint, info
-end
+# function postproc_arrays(Q0)
+#     nx = size(Q0)[2] 
+#     den  = Array{Float64}(undef, nx)
+#     ent  = Array{Float64}(undef, nx)
+#     vel  = Array{Float64, 2}(undef, 3, nx)
+#     strs = Array{Float64, 3}(undef, 3, 3, nx)
+#     eint = Array{Float64}(undef, nx)
+#
+#     for i in 1:size(Q0,2)
+#         Q = Q0[:, i]
+#         den[i], vel[:, i], F, e_int = cons2prim(Q)    # cons2prim должно возвращать вектор
+#         local sigma = stress(den[i], e_int, F)        # stress должно возвращать вектор
+#
+#         # Это не нужно,
+#         # invariants _уже умеет_ тензор как массив 3 на 3 и как строку длины 9
+#         for j in 1:3
+#             for k in 1:3
+#                 strs[j, k, i] = sigma[k, j]
+#             end
+#         end
+#         ent[i] = entropy(e_int, invariants(finger(F)))
+#         eint[i] = e_int
+#     end
+#
+#     info = ("den", "ent", "vel", "strs", "eint", "info")
+#     return den, ent, vel, strs, eint, info
+# end
 
 
 end # module Hyperelasticity

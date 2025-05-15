@@ -155,27 +155,6 @@ function entropy(eos::Barton2009, e_int, G::Array{<:Any,1})
   return log(S) * cv
 end
 
-# TODO: Remove computations if invariants from here, 
-#       and pass only precomputed invariants.
-# TODO: Pass only F, since den can be extracted form EoS type
-
-function stress(eos::Barton2009, den, e_int, F::Array{<:Any,1})::Array{<:Any,1}
-  G = finger(F)
-  S = entropy(eos, e_int, G)
-  # e(G::Array) = energy(eos, entropy(eos, e_int, G), G)
-  # e(G::Array) = energy(eos, S, G)
-
-  # dedG = gradient(e, G)
-  dedG = gradient(G -> energy(eos, S, G), G)
-
-  G = reshape(G, (3, 3))
-  dedG = reshape(dedG, (3, 3))
-
-  stress = -2 * den .* G * dedG
-  return reshape(stress, length(stress))
-end
-
-# WARNING: Requires smaller timestep
 function stress(eos::Barton2009, ent, F::Array{<:Any,1})::Array{<:Any,1}
   den = eos.rho0 / det(reshape(F, (3, 3)))
   G = finger(F)
@@ -189,49 +168,15 @@ function stress(eos::Barton2009, ent, F::Array{<:Any,1})::Array{<:Any,1}
   return reshape(stress, length(stress))
 end
 
-function acoustic(eos::Barton2009, P::Array{<:Any,1}, n::Array{<:Any,1})::Array{<:Any,2}
-  # function acoustic(eos::Barton2009, ent, F::Array{<:Any,1}, n::Array{<:Any,1})::Array{<:Any,2}
-  # acoustic = Array{Float64,2}(undef, 3, 3)
-  acoustic = zeros(3, 3)
-  den = P[1] * P[2]
-  ent = P[6]
-  F = P[7:15]
-  e_int = energy(eos, ent, finger(F))
-  dTdF = reshape(jacobian(F -> stress(eos, den, e_int, F), F), (3, 3, 3, 3))
-  # dTdF = reshape(jacobian(F -> stress(eos, ent, F), F), (3, 3, 3, 3))
-  F = reshape(F, (3, 3))
-  # den = eos.rho0 / det(F)
-  A = (1 / den) .* dTdF
-
-  # F = reshape(F, (3, 3))
-  for i = 1:3
-    for j = 1:3
-      # acoustic[i, j] = 0
-      for k = 1:3
-        for l = 1:3
-          for m = 1:3
-            acoustic[i, j] += A[m, i, j, l] * F[k, l] * n[m] * n[k]
-          end
-        end
-      end
-    end
-  end
-
-  return acoustic
-end
-# WARNING: Requires smaller timestep
 function acoustic(eos::Barton2009, ent, F::Array{<:Any,1}, n::Array{<:Any,1})::Array{<:Any,2}
-  # acoustic = Array{Float64,2}(undef, 3, 3)
   acoustic = zeros(3, 3)
   dTdF = reshape(jacobian(F -> stress(eos, ent, F), F), (3, 3, 3, 3))
   F = reshape(F, (3, 3))
   den = eos.rho0 / det(F)
   A = (1 / den) .* dTdF
 
-  # F = reshape(F, (3, 3))
   for i = 1:3
     for j = 1:3
-      # acoustic[i, j] = 0
       for k = 1:3
         for l = 1:3
           for m = 1:3
@@ -241,11 +186,10 @@ function acoustic(eos::Barton2009, ent, F::Array{<:Any,1}, n::Array{<:Any,1})::A
       end
     end
   end
+  # acoustic = dropdims(sum(A .* reshape(n * (F' * n)', (3,1,1,3)), dims=(1,4)), dims=(1,4))
 
   return acoustic
 end
-
-
 
 
 # Deprecated function

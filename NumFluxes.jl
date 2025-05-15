@@ -5,8 +5,8 @@
 
 module NumFluxes
 
-# using ..Hyperelasticity: flux
-using ..HyperelasticityMPh: flux_mph, noncons_flux, get_eigvals
+using ..Hyperelasticity: flux
+# using ..HyperelasticityMPh: flux_mph, noncons_flux, get_eigvals
 using ..EquationsOfState: EoS
 using ForwardDiff: derivative
 using FastGaussQuadrature: gausslobatto, gausslegendre
@@ -22,9 +22,11 @@ the Lax-Friedrichs method and `eos` equation of state
 
 `lambda` is the value of `Δx/Δt`
 """
-function lxf(eos::Tuple{T,T}, Q_l::Array{<:Any,1}, Q_r::Array{<:Any,1}, lambda) where {T<:EoS}
-  # return 0.5 * (flux(Q_l) + flux(Q_r)) - 0.5 * lambda * (Q_r - Q_l)
+function lxf(eos::T, Q_l::Array{<:Any,1}, Q_r::Array{<:Any,1}, lambda) where {T<:EoS}
+  return 0.5 * (flux(eos, Q_l) + flux(eos, Q_r)) - 0.5 * lambda * (Q_r - Q_l)
+end
 
+function lxf(eos::Tuple{T,T}, Q_l::Array{<:Any,1}, Q_r::Array{<:Any,1}, lambda) where {T<:EoS}
   path(Q_l, Q_r, s) = Q_l .* (1 - s) + Q_r .* s # define path
 
   cons = 0.5 * (flux_mph(eos, Q_l) + flux_mph(eos, Q_r)) - 0.5 * lambda * (Q_r - Q_l)
@@ -91,8 +93,8 @@ function hll_pathcons(eos::Tuple{T,T}, Q_l::Array{<:Any,1}, Q_r::Array{<:Any,1},
   s_r = max(0, maximum(get_eigvals(eos, Q_m, n)), maximum(eigvals[2]))
 
   # nodes, weights = gausslobatto(5)                       # for [-1,+1] interval
-  nodes, weights = gausslegendre(6)                       # for [-1,+1] interval
-  nodes, weights = (nodes .+ 1.0) / 2.0, weights ./ 2.0  # for [0,1] interval
+  nodes, weights = gausslegendre(6)                      # for [-1,+1] interval
+  nodes, weights = (nodes .+ 1.0) / 2.0, weights ./ 2.0  # for [ 0, 1] interval
 
   function B_int(Q_l, Q_r)
     B = Q -> noncons_flux(eos, Q)
@@ -110,6 +112,7 @@ function hll_pathcons(eos::Tuple{T,T}, Q_l::Array{<:Any,1}, Q_r::Array{<:Any,1},
 
   Q_hll = (Q_r * s_r - Q_l * s_l - path_int) / (s_r - s_l)
 
+  # ### Iterative method
   # while true
   #   Q_old = Q_hll
   #   b_1 = B_int(Q_l, Q_hll)
