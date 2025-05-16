@@ -5,11 +5,12 @@
 
 module EquationsOfState
 
-using LinearAlgebra: det, inv
+using LinearAlgebra: det, inv, tr
+using SpecialFunctions: expinti
 using ForwardDiff: gradient, jacobian
 using ..Strains: finger, invariants#, di1dg, di2dg, di3dg
 
-export energy, entropy, stress, Barton2009, EoS, acoustic
+export energy, entropy, stress, Barton2009, Stiffened, EoS, acoustic
 
 
 # ##############################################################################
@@ -155,7 +156,7 @@ function entropy(eos::Barton2009, e_int, G::Array{<:Any,1})
   return log(S) * cv
 end
 
-function stress(eos::Barton2009, ent, F::Array{<:Any,1})::Array{<:Any,1}
+function stress(eos::T, ent, F::Array{<:Any,1})::Array{<:Any,1} where {T<:EoS}
   den = eos.rho0 / det(reshape(F, (3, 3)))
   G = finger(F)
 
@@ -168,7 +169,7 @@ function stress(eos::Barton2009, ent, F::Array{<:Any,1})::Array{<:Any,1}
   return reshape(stress, length(stress))
 end
 
-function acoustic(eos::Barton2009, ent, F::Array{<:Any,1}, n::Array{<:Any,1})::Array{<:Any,2}
+function acoustic(eos::T, ent, F::Array{<:Any,1}, n::Array{<:Any,1})::Array{<:Any,2} where {T<:EoS}
   acoustic = zeros(3, 3)
   dTdF = reshape(jacobian(F -> stress(eos, ent, F), F), (3, 3, 3, 3))
   F = reshape(F, (3, 3))
@@ -242,72 +243,118 @@ end
 # в массив УрС для фаз.
 #
 
+
+# ##############################################################################
+# Stiffened
+# ##############################################################################
+
 """
-    Hank2016 EoS
-    See paper for parameters description.
+    Stiffened EoS
 """
-struct Hank2016 <: EoS
+struct Stiffened <: EoS
   # Primary parameters
-  rho0        # Initial density [g/cm^3]
-  mu          # Shear modulus [Pa]
-  gamma       # Characteristic
-  pres_inf    # constants
-  a           # EoS parameter
+  rho0    # Initial density [g/cm^3]
+  s
+  c0      # Speed of sound [km/s]
+  cv      # Heat capacity [kJ/(g*K)]
+  mu      # Shear elastic modulus
+  T0      # Initial temperature
+  G0      # Mie-Gruneisen parameter
+  S0      # Initial entropy
 
-  function Hank2016()
-    rho0 = 2.7 # Initial density [g/cm^3]
-    mu = 26e9  # Shear modulus [Pa]
-    gamma = 3.4
-    pres_inf = 21.5e9
-    a = 0.5
-    return new(rho0, mu, gamma, pres_inf, a)
+  function Stiffened(; rho0=2.78, s=1.338, c0=5.33, cv=9.3e-4, mu=27.6, T0=300, G0=2, S0=1e-3)
+    return new(rho0, s, c0, cv, mu, T0, G0, S0)
   end
-end # struct Hank2016 <: EoS
+end # struct Stiffened <: EoS
 
-function energy(eos::Hank2016, den, pres, G::Array{<:Any,2})
+function energy(eos::Stiffened, S, G::Array{<:Any,1})
   rho0 = eos.rho0
+  s = eos.s
   mu = eos.mu
-  gamma = eos.gamma
-  a = eos.a
-  pres_inf = eos.pres_inf
-
+  c0 = eos.c0
+  cv = eos.cv
+  T0 = eos.T0
+  G0 = eos.G0
+  S0 = eos.S0
+  
   i = invariants(G)
+  i[2] = tr(reshape(G, (3,3))^2)
 
-  j = [i[1] / i[3]^(1 / 3), (i[1]^2 - 2 * i[2]) / i[3]^(2 / 3)]
+  rho = rho0 * sqrt(i[3])
+  nu = rho0 / rho
+  cs = sqrt(mu / rho)
 
-  e_el = mu / (4 * rho0) * ((1 - 2 * a) / 3 * j[1]^2 + a * j[2] + 3 * (a - 1))
-  e_h = (pres + gamma * pres_inf) / (den * (gamma - 1))
-  e_int = e_el + e_h
+  e_ref = 1/2 * c0^2 * (1 - nu)^2 / (1 - s * (1 - nu))^2
+  T_ref = 1 / (2*cv*s^4) * (
+    s * (-c0^2 * (G0 - 3*s) + 2*cv*s^3*T0) * exp(G0 * (1 - nu)) 
+    + (c0^2*s * ((G0 - 4*s) * s*nu + G0 - (3 + G0)*s + 4*s^2)) 
+      / (s*(nu - 1) + 1)^2 
+    + c0^2 * exp(G0 * (1 - (1/s + nu))) * (G0^2 - 4*G0*s + 2s^2) * (expinti(G0/s) - expinti(G0 * (-1 + 1/s + nu)))
+   )
+  T = T0 * exp((S - S0) / cv - G0 * (nu - 1))
+
+  e_int = e_ref + cv * (T - T_ref)
+  e_int += cs^2 / 4 * (i[2] - 1/3 * i[1]^2)
+
   return e_int
 end
 
-function pressure(eos::Hank2016, den, e_int, i::Array{<:Any,1})
+function pressure(eos::Stiffened, den, e_int, i::Array{<:Any,1})
   rho0 = eos.rho0
-  mu = eos.mu
-  gamma = eos.gamma
-  a = eos.a
-  pres_inf = eos.pres_inf
+  c0 = eos.c0
+  cv = eos.cv
+  T0 = eos.T0
+  G0 = eos.G0
+  S0 = eos.S0
+  
+  i = invariants(G)
 
-  j = [i[1] / i[3]^(1 / 3), (i[1]^2 - 2 * i[2]) / i[3]^(2 / 3)]
+  rho = rho0 * sqrt(i[3])
+  nu = rho0 / rho
+  e_ref = 1/2 * c0^2 * (1 - nu)^2 / (1 - s * (1 - nu))^2
+  T_ref = 1 / (2*cv*s^4) * (
+    s * (-c0^2 * (G0 - 3*s) + 2*cv*s^3*T0) * exp(G0 * (1 - nu)) 
+    + (c0^2*s * ((G0 - 4*s) * s*nu + G0 - (3 + G0)*s + 4*s^2)) 
+      / (s*(nu - 1) + 1)^2 
+    + c0^2 * exp(G0 * (1 - (1/s + nu))) * (G0^2 - 4*G0*s + 2s^2) * (expinti(G0/s) - expinti(G0 * (-1 + 1/s + nu)))
+   )
 
-  e_el = mu / (4 * rho0) * ((1 - 2 * a) / 3 * j[1]^2 + a * j[2] + 3 * (a - 1))
-  e_h = e_int - e_el
-  pres = e_h * (gamma - 1) * den - gamma * pres_inf
+  
+
   return pres
 end
 
-function stress(eos::Hank2016, den, pressure, distortion::Array{<:Any,1})::Array{<:Any,1}
-  G = finger(inv(reshape(distortion, (3, 3))))
+function entropy(eos::Stiffened, e_int, G::Array{<:Any,1})
+  rho0 = eos.rho0
+  mu = eos.mu
+  s = eos.s
+  c0 = eos.c0
+  cv = eos.cv
+  T0 = eos.T0
+  G0 = eos.G0
+  S0 = eos.S0
 
-  e(G::Array) = energy(eos, den, pressure, G)
-  dedG = reshape(gradient(e, G), (3, 3))
-  stress = -2.0 * den .* G * dedG
-  return reshape(stress, length(stress))
+  i = invariants(G)
+  i[2] = tr(reshape(G, (3,3))^2)
+
+  rho = rho0 * sqrt(i[3])
+  nu = rho0 / rho
+  cs = sqrt(mu / rho)
+
+  e_ref = 1/2 * c0^2 * (1 - nu)^2 / (1 - s * (1 - nu))^2
+  T_ref = 1 / (2*cv*s^4) * (
+    s * (-c0^2 * (G0 - 3*s) + 2*cv*s^3*T0) * exp(G0 * (1 - nu)) 
+    + (c0^2*s * ((G0 - 4*s) * s*nu + G0 - (3 + G0)*s + 4*s^2)) 
+      / (s*(nu - 1) + 1)^2 
+    + c0^2 * exp(G0 * (1 - (1/s + nu))) * (G0^2 - 4*G0*s + 2s^2) * (expinti(G0/s) - expinti(G0 * (-1 + 1/s + nu)))
+   )
+
+  e_int -= cs^2 / 4 * (i[2] - 1/3 * i[1]^2)
+  ent = S0 + cv * (log((T_ref + (e_int  - e_ref) / cv) / T0) + G0 * (nu - 1))
+
+  return ent
 end
 
-eos_hank2016 = Hank2016()
-
-export Hank2016, eos_hank2016, pressure
 
 end # module EoS
 # EOF

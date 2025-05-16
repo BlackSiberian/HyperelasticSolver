@@ -13,7 +13,7 @@ include("./NumFluxes.jl")
 include("./Relaxation.jl")
 
 # Только то, что нужно в main.jl
-using .EquationsOfState: EoS, Barton2009
+using .EquationsOfState: EoS, Barton2009, Stiffened
 using .Hyperelasticity: prim2cons, cons2prim, initial_states, get_eigvals#, postproc_arrays
 # using .HyperelasticityMPh: initial_states, cons2prim_mph, prim2cons_mph, get_eigvals, cons2data_mph#, postproc_arrays
 using .NumFluxes: lxf, hll
@@ -148,7 +148,8 @@ end
 # Set equation of state for each phase
 # eos = (Barton2009(), Barton2009(_rho0=8.93, _c0=6.22, _cv=9.0e-4, _t0=300, _b0=3.16, _alpha=1, _beta=3.577, _gamma=2.088))
 # eos = (Barton2009(), Barton2009())
-eos = Barton2009()
+# eos = Barton2009()
+eos = Stiffened()
 testcase = 4    # Select the test case
 
 log_freq = 10   # Log frequency
@@ -157,7 +158,7 @@ log_freq = 10   # Log frequency
 X = 1.0     # Coordinate boundary [m]
 T = 0.06    # Time boundary [1e-5 s]
 
-nx = 500    # Number of steps on dimension coordinate
+nx = 2000   # Number of steps on dimension coordinate
 cfl = 0.95  # Courant-Friedrichs-Levy number
 dt = 5 * 1e-6
 

@@ -102,6 +102,7 @@ function get_eigvals(eos::T, Q::Array{<:Any,1}, n::Array{<:Any,1}) where {T<:EoS
   ac = acoustic(eos, ent, def_grad, n)
   # WARNING: No abs should be here. Eigvals must be non-negative
   sound_spd = sqrt.(abs.(eigvals(ac)))
+  # sound_spd = sqrt.(eigvals(ac))
   spd = dot(vel, n)
   return vcat(spd .+ sound_spd, spd .- sound_spd)
 end
@@ -153,11 +154,11 @@ function initial_states(eos::T, testcase::Int) where {T <: EoS}
                0.0          0.0         1.0]
         S_r = 0.0 # [kJ/(g*K)]
   elseif testcase == 4
-    u_r = [0, -10, 0]
+    u_r = [0, -5, 0]
     F_r = [1 0 0; 0 1 0; 0 0 1]
     S_r = 1e-3
 
-    u_l = [0, 10, 0]
+    u_l = [0, 5, 0]
     F_l = [1 0 0; 0 1 0; 0 0 1]
     S_l = 1e-3
     else
