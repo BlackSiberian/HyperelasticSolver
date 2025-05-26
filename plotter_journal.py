@@ -21,6 +21,7 @@ def add_to_plt(path, color):
     vel = [Q[:, 2:5], Q[:, 17:20]]
     ent = [Q[:, 5], Q[:, 20]]
     strs = [Q[:, 6:15], Q[:, 21:30]]
+    pres = [-1/3 * sum([Q[:, i] for i in range(6, 15, 4)]), -1/3 * sum([Q[:, i] for i in range(21, 30, 4)])]
 
     X = np.linspace(0, 1, len(den[0]))
 
@@ -31,6 +32,7 @@ def add_to_plt(path, color):
             vel_plt[i][1].plot(
                 X, vel[p][:, i], color=colors[color], linestyle=styles[p])
         ent_plt[1].plot(X, ent[p], color=colors[color], linestyle=styles[p])
+        pres_plt[1].plot(X, pres[p], color=colors[color], linestyle=styles[p])
         for j in range(3):
             for i in range(j, 3):
                 strs_plt[i + j*3][1].plot(X, strs[p][:, i + j*3], color=colors[color], linestyle=styles[p])
@@ -40,6 +42,7 @@ den_plt = plt.subplots()
 vel_plt = [plt.subplots() for _ in range(3)]
 ent_plt = plt.subplots()
 strs_plt =[plt.subplots() for _ in range(9)]
+pres_plt = plt.subplots()
 
 colors = ['black']
 labels = [r'$\Delta x = 1/5000$, ', r'$\Delta x = 1/10000$, ']
@@ -72,20 +75,21 @@ for fig, ax in [frac_plt, den_plt, *vel_plt, ent_plt, *strs_plt]:
     fig.set_dpi(600)
     # t += 1
 
-# frac_plt[0].savefig(plotpath + 'fraction.png')
-# den_plt[0].savefig(plotpath + 'density.png')
-# for i in range(3):
-#     vel_plt[i][0].savefig(plotpath + f'velocity_{i+1}.png')
-# ent_plt[0].savefig(plotpath + 'entropy.png')
-# for j in range(3):
-#     for i in range(j, 3):
-#         strs_plt[i+j*3][0].savefig(plotpath + f'stress_{i+1}{j+1}.png')
-
-frac_plt[0].savefig(plotpath + 'fraction.eps', format='eps')
-den_plt[0].savefig(plotpath + 'density.eps', format='eps')
+frac_plt[0].savefig(plotpath + 'fraction.png')
+den_plt[0].savefig(plotpath + 'density.png')
 for i in range(3):
-    vel_plt[i][0].savefig(plotpath + f'velocity_{i+1}.eps', format='eps')
-ent_plt[0].savefig(plotpath + 'entropy.eps', format='eps')
+    vel_plt[i][0].savefig(plotpath + f'velocity_{i+1}.png')
+ent_plt[0].savefig(plotpath + 'entropy.png')
+pres_plt[0].savefig(plotpath + 'pressure.png')
 for j in range(3):
     for i in range(j, 3):
-        strs_plt[i+j*3][0].savefig(plotpath + f'stress_{i+1}{j+1}.eps', format='eps')
+        strs_plt[i+j*3][0].savefig(plotpath + f'stress_{i+1}{j+1}.png')
+
+# frac_plt[0].savefig(plotpath + 'fraction.eps', format='eps')
+# den_plt[0].savefig(plotpath + 'density.eps', format='eps')
+# for i in range(3):
+#     vel_plt[i][0].savefig(plotpath + f'velocity_{i+1}.eps', format='eps')
+# ent_plt[0].savefig(plotpath + 'entropy.eps', format='eps')
+# for j in range(3):
+#     for i in range(j, 3):
+#         strs_plt[i+j*3][0].savefig(plotpath + f'stress_{i+1}{j+1}.eps', format='eps')
