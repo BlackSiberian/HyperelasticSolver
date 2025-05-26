@@ -154,11 +154,11 @@ function initial_states(eos::T, testcase::Int) where {T <: EoS}
                0.0          0.0         1.0]
         S_r = 0.0 # [kJ/(g*K)]
   elseif testcase == 4
-    u_r = [0, -5, 0]
+    u_r = [0, 1.5, 0]
     F_r = [1 0 0; 0 1 0; 0 0 1]
     S_r = 1e-3
 
-    u_l = [0, 5, 0]
+    u_l = [0, -1.5, 0]
     F_l = [1 0 0; 0 1 0; 0 0 1]
     S_l = 1e-3
     else

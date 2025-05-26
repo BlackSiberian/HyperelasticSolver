@@ -150,15 +150,16 @@ end
 # eos = (Barton2009(), Barton2009())
 # eos = Barton2009()
 eos = Stiffened()
+# eos = Stiffened(rho0=2780, s=1.338, c0=5330, cv=9.3e2, mu=27.6e9, T0=300, G0=2.13e9, S0=1e6)
 testcase = 4    # Select the test case
 
 log_freq = 10   # Log frequency
 
 
 X = 1.0     # Coordinate boundary [m]
-T = 0.06    # Time boundary [1e-5 s]
+T = 0.035   # Time boundary [1e-5 s]
 
-nx = 2000   # Number of steps on dimension coordinate
+nx = 8000   # Number of steps on dimension coordinate
 cfl = 0.95  # Courant-Friedrichs-Levy number
 dt = 5 * 1e-6
 
@@ -262,7 +263,7 @@ while t < T
 
   @info msg
 
-  if step_num >= 3000
+  if step_num >= 10000
     break
   end
 end  # while t < T
