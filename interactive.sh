@@ -1,4 +1,7 @@
 #!/bin/bash
-sudo docker run -it --rm -v ~/Documents/GitHub/HyperelasticSolver:/app \
-  -v julia_docker:/root/.julia \
-  -w /app julia:1.9
+sudo docker run -it --rm \
+  --name HyperelasticSolver \
+  --mount type=volume,source=julia_docker,target=/root/.julia \
+  --mount type=bind,source="$(pwd)",target=/app \
+  --workdir /app \
+  julia:1.9 julia

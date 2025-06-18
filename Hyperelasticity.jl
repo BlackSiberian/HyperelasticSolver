@@ -10,7 +10,7 @@ import LinearAlgebra: det, eigvals, dot
 using ..EquationsOfState: density, acoustic, energy, entropy, stress, EoS, Barton2009
 using ..Strains: finger, invariants
 
-export prim2cons, cons2prim, flux, initial_states, postproc_arrays, get_eigvals
+export prim2cons, cons2prim, flux, initial_states, get_eigvals#, postproc_arrays
 
 
 """
@@ -52,7 +52,7 @@ function prim2cons(eos::T, P::Array{<:Any,1}) where {T<:EoS}
   vel = P[1:3]
   entropy = P[4]
   def_grad = P[5:13]
-  den = eos.rho0 / det(reshape(def_grad, (3,3)))
+  den = eos.rho0 / det(reshape(def_grad, (3, 3)))
 
   G = finger(def_grad)
   e_int = energy(eos, entropy, G)
@@ -117,42 +117,42 @@ end
     Задает левые и правые состояния для НУ, присваивание --- в основном коде.
     Эта фунция ничего не знает про сетку, но знает про физику.    
 """
-function initial_states(eos::T, testcase::Int) where {T <: EoS}
-    if testcase == 1
-        u_l = [0.0, 0.5, 1.0]       # velocity on the left boundary [km/s]
-        F_l = [ 0.98  0.0   0.0;    # elastic deformation gradient tensor
-                0.02  1.0   0.1;    # on the left boundary
-                0.0   0.0   1.0]
-        S_l = 1e-3                  # entropy on the left boundary [kJ/(g*K)]
-        
-        u_r = [0.0, 0.0, 0.0]       # velocity on the right boundary [km/s]
-        F_r = [ 1.0    0.0   0.0;   # elastic deformation gradient tensor
-                0.0    1.0   0.1;   # on the right boundary
-                0.0    0.0   1.0]
-        S_r = 0                     # entropy on the right boundary [kJ/(g*K)]
-    elseif testcase == 2
-        u_l = [2.0, 0.0, 0.1] # [km/s]
-        F_l = [ 1.0     0.0   0.0 ;
-                -0.01   0.95  0.02; 
-                -0.015  0.0   0.9 ]
-        S_l = 0.0 # [kJ/(g*K)]
-        
-        u_r = [0.0, -0.03, -0.01] # [km/s]
-        F_r = [ 1.0     0.0     0.0;
-                0.015   0.95    0.0;
-                -0.01   0.0     0.9]
-        S_r = 0.0 # [kJ/(g*K)]
-    elseif testcase == 3
-        u_l = [1.0, 0.0, 0.0] # [km/s]
-        F_l = [0.5      -0.5*3^0.5      0.0;
-               0.5*3^0.5    0.5         0.0;
-               0.0          0.0         1.0]
-        S_l = 0.0 # [kJ/(g*K)]
-        u_r = [1.0, 0.0, 0.0] # [km/s]
-        F_r = [0.5       -0.5*3^0.5     0.0;
-               0.5*3^0.5    0.5         0.0;
-               0.0          0.0         1.0]
-        S_r = 0.0 # [kJ/(g*K)]
+function initial_states(eos::T, testcase::Int) where {T<:EoS}
+  if testcase == 1
+    u_l = [0.0, 0.5, 1.0]       # velocity on the left boundary [km/s]
+    F_l = [0.98 0.0 0.0;    # elastic deformation gradient tensor
+      0.02 1.0 0.1;    # on the left boundary
+      0.0 0.0 1.0]
+    S_l = 1e-3                  # entropy on the left boundary [kJ/(g*K)]
+
+    u_r = [0.0, 0.0, 0.0]       # velocity on the right boundary [km/s]
+    F_r = [1.0 0.0 0.0;   # elastic deformation gradient tensor
+      0.0 1.0 0.1;   # on the right boundary
+      0.0 0.0 1.0]
+    S_r = 0                     # entropy on the right boundary [kJ/(g*K)]
+  elseif testcase == 2
+    u_l = [2.0, 0.0, 0.1] # [km/s]
+    F_l = [1.0 0.0 0.0;
+      -0.01 0.95 0.02;
+      -0.015 0.0 0.9]
+    S_l = 0.0 # [kJ/(g*K)]
+
+    u_r = [0.0, -0.03, -0.01] # [km/s]
+    F_r = [1.0 0.0 0.0;
+      0.015 0.95 0.0;
+      -0.01 0.0 0.9]
+    S_r = 0.0 # [kJ/(g*K)]
+  elseif testcase == 3
+    u_l = [1.0, 0.0, 0.0] # [km/s]
+    F_l = [0.5 -0.5*3^0.5 0.0;
+      0.5*3^0.5 0.5 0.0;
+      0.0 0.0 1.0]
+    S_l = 0.0 # [kJ/(g*K)]
+    u_r = [1.0, 0.0, 0.0] # [km/s]
+    F_r = [0.5 -0.5*3^0.5 0.0;
+      0.5*3^0.5 0.5 0.0;
+      0.0 0.0 1.0]
+    S_r = 0.0 # [kJ/(g*K)]
   elseif testcase == 4
     u_r = [0, 1.5, 0]
     F_r = [1 0 0; 0 1 0; 0 0 1]
@@ -161,19 +161,35 @@ function initial_states(eos::T, testcase::Int) where {T <: EoS}
     u_l = [0, -1.5, 0]
     F_l = [1 0 0; 0 1 0; 0 0 1]
     S_l = 1e-3
-    else
-        u_l = u_r = zeros(3)
-        F_l = F_r = [1 0 0; 0 1 0; 0 0 1]
-        S_l = S_r = 0.0
-    end
+  elseif testcase == 5
+    u_r = [-1.5, 0, 0]
+    F_r = [1 0 0; 0 1 0; 0 0 1]
+    S_r = 1e-3
 
-    P_l = [u_l..., S_l, F_l...]
-    P_r = [u_r..., S_r, F_r...]
+    u_l = [1.5, 0, 0]
+    F_l = [1 0 0; 0 1 0; 0 0 1]
+    S_l = 1e-3
+  elseif testcase == 6
+    u_r = [1.5, 0, 0]
+    F_r = [1 0 0; 0 1 0; 0 0 1]
+    S_r = 1e-3
 
-    Q_l = prim2cons(eos, P_l)
-    Q_r = prim2cons(eos, P_r)
+    u_l = [-1.5, 0, 0]
+    F_l = [1 0 0; 0 1 0; 0 0 1]
+    S_l = 1e-3
+  else
+    u_l = u_r = zeros(3)
+    F_l = F_r = [1 0 0; 0 1 0; 0 0 1]
+    S_l = S_r = 0.0
+  end
 
-    return Q_l, Q_r
+  P_l = [u_l..., S_l, F_l...]
+  P_r = [u_r..., S_r, F_r...]
+
+  Q_l = prim2cons(eos, P_l)
+  Q_r = prim2cons(eos, P_r)
+
+  return Q_l, Q_r
 end # initial_states(eos::T, testcase::Int) where {T<:EoS}
 
 

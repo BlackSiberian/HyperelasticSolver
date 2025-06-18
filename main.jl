@@ -101,7 +101,7 @@ function read_data(fname::String)
   # P = Array{Float64}(undef, 30, nx)
   P = Array{Float64}(undef, 13, nx)
   for (indx, line) in enumerate(data[3:end])
-      P[:, indx] = parse.(Float64, split(line))
+    P[:, indx] = parse.(Float64, split(line))
   end
   return P, t, nx
 end
