@@ -14,7 +14,7 @@ include("./Relaxation.jl")
 
 # Только то, что нужно в main.jl
 using .EquationsOfState: EoS, Barton2009, Stiffened
-using .Hyperelasticity: prim2cons, cons2prim, initial_states, get_eigvals#, postproc_arrays
+using .Hyperelasticity: prim2cons, cons2prim, initial_states, get_eigvals, cons2data#, postproc_arrays
 # using .HyperelasticityMPh: initial_states, cons2prim_mph, prim2cons_mph, get_eigvals, cons2data_mph#, postproc_arrays
 using .NumFluxes: lxf, hll
 using .Relaxation: relaxation
@@ -81,9 +81,11 @@ end
 function save_data_plt(fname::String, Q::Array{<:Any,2})
   io = open(fname, "w")
   nx = size(Q)[2]
-  write(io, "a1\tr1\tu11\tu21\tu31\tS1\tT111\tT211\tT311\tT121\tT221\tT321\tT131\tT231\tT331\ta2\tr2\tu12\tu22\tu32\tS2\tT112\tT212\tT312\tT122\tT222\tT322\tT132\tT232\tT332", "\n")
+  # write(io, "a1\tr1\tu11\tu21\tu31\tS1\tT111\tT211\tT311\tT121\tT221\tT321\tT131\tT231\tT331\ta2\tr2\tu12\tu22\tu32\tS2\tT112\tT212\tT312\tT122\tT222\tT322\tT132\tT232\tT332", "\n")
+  # write(io, "r\tu1\tu2\tu3\tS\tT11\tT21\tT31\tT12\tT22\tT32\tT13\tT23\tT33")
+  write(io, "r\tu1\tu2\tu3\tS\tT11\tT21\tT31\tT12\tT22\tT32\tT13\tT23\tT33\tTeta\tP\tS11\tS12\tS13\tS21\tS22\tS23\tS31\tS32\tS33\tS11^2/4mu\tS12^2/4mu\tS13^2/4mu\tS21^2/4mu\tS22^2/4mu\tS23^2/4mu\tS31^2/4mu\tS32^2/4mu\tS33^2/4mu", "\n")
   for i in 1:nx
-    D = cons2data_mph(eos, Q[:, i])
+    D = cons2data(eos, Q[:, i])
     write(io, join(D, "\t"), "\n")
   end
   close(io)
@@ -159,7 +161,7 @@ log_freq = 10   # Log frequency
 X = 1.0     # Coordinate boundary [m]
 T = 0.035   # Time boundary [1e-5 s]
 
-nx = 8000   # Number of steps on dimension coordinate
+nx = 4000   # Number of steps on dimension coordinate
 cfl = 0.95  # Courant-Friedrichs-Levy number
 dt = 5 * 1e-6
 
@@ -269,8 +271,8 @@ while t < T
 end  # while t < T
 
 fname = joinpath(dir_name, "result.csv")
-# save_data_plt(fname, Q0)
-save_data(fname, Q0)
+save_data_plt(fname, Q0)
+# save_data(fname, Q0)
 @info @sprintf("Result solution saved to: %s\n", fname)
 
 # ##############################################################################
@@ -298,7 +300,7 @@ save_data(fname, Q0)
 #     hyperelasticitymph_postproc.jl
 #    
 
-# include("hyperelasticitymph_postproc.jl")
+include("hyperelasticity_postproc.jl")
 
 @info @sprintf("Done!")
 

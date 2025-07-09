@@ -7,7 +7,7 @@ module EquationsOfState
 
 using LinearAlgebra: det, inv, tr
 using SpecialFunctions: expinti
-using ForwardDiff: gradient, jacobian
+using ForwardDiff: derivative, gradient, jacobian
 using ..Strains: finger, invariants#, di1dg, di2dg, di3dg
 
 export energy, entropy, stress, Barton2009, Stiffened, EoS, acoustic
@@ -192,6 +192,10 @@ function acoustic(eos::T, ent, F::Array{<:Any,1}, n::Array{<:Any,1})::Array{<:An
   return acoustic
 end
 
+function temperature(eos::T, ent, F::Array{<:Any,1}) where {T<:EoS}
+  G = finger(F)
+  return derivative(S -> energy(eos, S, G), ent)
+end
 
 # Deprecated function
 # Здесь Q --- одномерный массив.
@@ -276,25 +280,26 @@ function energy(eos::Stiffened, S, G::Array{<:Any,1})
   T0 = eos.T0
   G0 = eos.G0
   S0 = eos.S0
-  
+
   i = invariants(G)
-  i[2] = tr(reshape(G, (3,3))^2)
+  i[2] = tr(reshape(G, (3, 3))^2)
 
   rho = rho0 * sqrt(i[3])
   nu = rho0 / rho
   cs = sqrt(mu / rho)
 
-  e_ref = 1/2 * c0^2 * (1 - nu)^2 / (1 - s * (1 - nu))^2
-  T_ref = 1 / (2*cv*s^4) * (
-    s * (-c0^2 * (G0 - 3*s) + 2*cv*s^3*T0) * exp(G0 * (1 - nu)) 
-    + (c0^2*s * ((G0 - 4*s) * s*nu + G0 - (3 + G0)*s + 4*s^2)) 
-      / (s*(nu - 1) + 1)^2 
-    + c0^2 * exp(G0 * (1 - (1/s + nu))) * (G0^2 - 4*G0*s + 2s^2) * (expinti(G0/s) - expinti(G0 * (-1 + 1/s + nu)))
-   )
+  e_ref = 1 / 2 * c0^2 * (1 - nu)^2 / (1 - s * (1 - nu))^2
+  T_ref = 1 / (2 * cv * s^4) * (
+    s * (-c0^2 * (G0 - 3 * s) + 2 * cv * s^3 * T0) * exp(G0 * (1 - nu))
+    + (c0^2 * s * ((G0 - 4 * s) * s * nu + G0 - (3 + G0) * s + 4 * s^2))
+      /
+      (s * (nu - 1) + 1)^2
+    + c0^2 * exp(G0 * (1 - (1 / s + nu))) * (G0^2 - 4 * G0 * s + 2s^2) * (expinti(G0 / s) - expinti(G0 * (-1 + 1 / s + nu)))
+  )
   T = T0 * exp((S - S0) / cv - G0 * (nu - 1))
 
   e_int = e_ref + cv * (T - T_ref)
-  e_int += cs^2 / 4 * (i[2] - 1/3 * i[1]^2)
+  e_int += cs^2 / 4 * (i[2] - 1 / 3 * i[1]^2)
 
   return e_int
 end
@@ -306,20 +311,21 @@ function pressure(eos::Stiffened, den, e_int, i::Array{<:Any,1})
   T0 = eos.T0
   G0 = eos.G0
   S0 = eos.S0
-  
+
   i = invariants(G)
 
   rho = rho0 * sqrt(i[3])
   nu = rho0 / rho
-  e_ref = 1/2 * c0^2 * (1 - nu)^2 / (1 - s * (1 - nu))^2
-  T_ref = 1 / (2*cv*s^4) * (
-    s * (-c0^2 * (G0 - 3*s) + 2*cv*s^3*T0) * exp(G0 * (1 - nu)) 
-    + (c0^2*s * ((G0 - 4*s) * s*nu + G0 - (3 + G0)*s + 4*s^2)) 
-      / (s*(nu - 1) + 1)^2 
-    + c0^2 * exp(G0 * (1 - (1/s + nu))) * (G0^2 - 4*G0*s + 2s^2) * (expinti(G0/s) - expinti(G0 * (-1 + 1/s + nu)))
-   )
+  e_ref = 1 / 2 * c0^2 * (1 - nu)^2 / (1 - s * (1 - nu))^2
+  T_ref = 1 / (2 * cv * s^4) * (
+    s * (-c0^2 * (G0 - 3 * s) + 2 * cv * s^3 * T0) * exp(G0 * (1 - nu))
+    + (c0^2 * s * ((G0 - 4 * s) * s * nu + G0 - (3 + G0) * s + 4 * s^2))
+      /
+      (s * (nu - 1) + 1)^2
+    + c0^2 * exp(G0 * (1 - (1 / s + nu))) * (G0^2 - 4 * G0 * s + 2s^2) * (expinti(G0 / s) - expinti(G0 * (-1 + 1 / s + nu)))
+  )
 
-  
+
 
   return pres
 end
@@ -335,22 +341,23 @@ function entropy(eos::Stiffened, e_int, G::Array{<:Any,1})
   S0 = eos.S0
 
   i = invariants(G)
-  i[2] = tr(reshape(G, (3,3))^2)
+  i[2] = tr(reshape(G, (3, 3))^2)
 
   rho = rho0 * sqrt(i[3])
   nu = rho0 / rho
   cs = sqrt(mu / rho)
 
-  e_ref = 1/2 * c0^2 * (1 - nu)^2 / (1 - s * (1 - nu))^2
-  T_ref = 1 / (2*cv*s^4) * (
-    s * (-c0^2 * (G0 - 3*s) + 2*cv*s^3*T0) * exp(G0 * (1 - nu)) 
-    + (c0^2*s * ((G0 - 4*s) * s*nu + G0 - (3 + G0)*s + 4*s^2)) 
-      / (s*(nu - 1) + 1)^2 
-    + c0^2 * exp(G0 * (1 - (1/s + nu))) * (G0^2 - 4*G0*s + 2s^2) * (expinti(G0/s) - expinti(G0 * (-1 + 1/s + nu)))
-   )
+  e_ref = 1 / 2 * c0^2 * (1 - nu)^2 / (1 - s * (1 - nu))^2
+  T_ref = 1 / (2 * cv * s^4) * (
+    s * (-c0^2 * (G0 - 3 * s) + 2 * cv * s^3 * T0) * exp(G0 * (1 - nu))
+    + (c0^2 * s * ((G0 - 4 * s) * s * nu + G0 - (3 + G0) * s + 4 * s^2))
+      /
+      (s * (nu - 1) + 1)^2
+    + c0^2 * exp(G0 * (1 - (1 / s + nu))) * (G0^2 - 4 * G0 * s + 2s^2) * (expinti(G0 / s) - expinti(G0 * (-1 + 1 / s + nu)))
+  )
 
-  e_int -= cs^2 / 4 * (i[2] - 1/3 * i[1]^2)
-  ent = S0 + cv * (log((T_ref + (e_int  - e_ref) / cv) / T0) + G0 * (nu - 1))
+  e_int -= cs^2 / 4 * (i[2] - 1 / 3 * i[1]^2)
+  ent = S0 + cv * (log((T_ref + (e_int - e_ref) / cv) / T0) + G0 * (nu - 1))
 
   return ent
 end

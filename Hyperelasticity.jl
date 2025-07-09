@@ -5,12 +5,12 @@
 
 module Hyperelasticity
 
-import LinearAlgebra: det, eigvals, dot
+import LinearAlgebra: det, eigvals, dot, tr, I
 
-using ..EquationsOfState: density, acoustic, energy, entropy, stress, EoS, Barton2009
+using ..EquationsOfState: density, acoustic, energy, entropy, stress, temperature, EoS, Barton2009
 using ..Strains: finger, invariants
 
-export prim2cons, cons2prim, flux, initial_states, get_eigvals#, postproc_arrays
+export prim2cons, cons2prim, flux, initial_states, get_eigvals, cons2data#, postproc_arrays
 
 
 """
@@ -39,6 +39,43 @@ function cons2prim(eos::T, Q::Array{<:Any,1}) where {T<:EoS}
   return P
 end
 
+function cons2data(eos::T, Q::Array{<:Any,1}) where {T<:EoS}
+  D = Array{Float64}(undef, 34)
+
+  FQ = reshape(Q[5:13], (3, 3))
+  den = sqrt(det(FQ) / eos.rho0)
+
+  vel = Q[1:3] / den
+  e_total = Q[4] / den
+  e_kin = sum(vel .^ 2) / 2
+  e_int = e_total - e_kin
+  def_grad = Q[5:13] / den
+
+  G = finger(def_grad)
+  ent = entropy(eos, e_int, G)
+  strs = stress(eos, ent, def_grad)
+  temp = temperature(eos, ent, def_grad)
+
+  pres = -1 / 3 * tr(reshape(strs, (3, 3)))
+  dev = reshape(strs, (3, 3)) + pres * I
+  SSmu = Matrix(undef, 3, 3)
+  for i in 1:3
+    for j in 1:3
+      SSmu[i, j] = dev[i, j]^2 / 4eos.mu
+    end
+  end
+
+  D[1] = den
+  D[2:4] = vel
+  D[5] = ent
+  D[6:14] = strs
+  D[15] = temp
+  D[16] = pres
+  D[17:25] = reshape(dev, 9)
+  D[26:34] = reshape(SSmu, 9)
+
+  return D
+end
 
 """
     prim2cons(eos::T, P::Array{<:Any, 1}) where {T<:EoS}
@@ -154,11 +191,11 @@ function initial_states(eos::T, testcase::Int) where {T<:EoS}
       0.0 0.0 1.0]
     S_r = 0.0 # [kJ/(g*K)]
   elseif testcase == 4
-    u_r = [0, 1.5, 0]
+    u_r = [0, 0.015, 0]
     F_r = [1 0 0; 0 1 0; 0 0 1]
     S_r = 1e-3
 
-    u_l = [0, -1.5, 0]
+    u_l = [0, -0.015, 0]
     F_l = [1 0 0; 0 1 0; 0 0 1]
     S_l = 1e-3
   elseif testcase == 5
