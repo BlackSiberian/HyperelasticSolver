@@ -5,12 +5,16 @@
 
 module NumFluxes
 
-using ..Hyperelasticity: flux
+using ..Hyperelasticity: flux,get_eigvals, matrix_corr
 # using ..HyperelasticityMPh: flux_mph, noncons_flux, get_eigvals
 using ..EquationsOfState: EoS
-using ForwardDiff: derivative
+using ForwardDiff: derivative, gradient, jacobian
 using FastGaussQuadrature: gausslobatto, gausslegendre
-using LinearAlgebra: I, norm
+using LinearAlgebra
+using PrettyTables
+using JLD
+include("./eigen_structure.jl")
+include("./schur.jl")
 
 export lxf, hll
 
@@ -84,6 +88,12 @@ function hll(eos::Tuple{T,T}, Q_l::Array{<:Any,1}, Q_r::Array{<:Any,1}, eigvals:
   return zeros(30), noncons_minus, noncons_plus
 end
 
+function hll(eos::T, Q_l::Array{<:Any,1}, Q_r::Array{<:Any,1}, eigvals::Array{<:Any,1}) where {T<:EoS}
+  noncons_minus, noncons_plus = hllem(eos, Q_l, Q_r, eigvals)
+  # return cons, noncons_minus, noncons_plus
+  return zeros(13), noncons_minus, noncons_plus
+end
+
 function hll_pathcons(eos::Tuple{T,T}, Q_l::Array{<:Any,1}, Q_r::Array{<:Any,1}, path::Function, eigvals::Array{<:Any,1}) where {T<:EoS}
   Q_m = 0.5 * (Q_l + Q_r)
   n = [1, 0, 0]
@@ -133,6 +143,56 @@ function hll_pathcons(eos::Tuple{T,T}, Q_l::Array{<:Any,1}, Q_r::Array{<:Any,1},
 
   return dm, dp
 end
+
+function lxf(eos::T, Q_l::Array{<:Any,1}, Q_r::Array{<:Any,1}, lambda) where {T<:EoS}
+  return 0.5 * (flux(eos, Q_l) + flux(eos, Q_r)) - 0.5 * lambda * (Q_r - Q_l)
+end
+
+function hllem(eos::T, Q_l::Array{<:Any,1}, Q_r::Array{<:Any,1}, eigvals::Array{<:Any,1}) where {T<:EoS}
+  Q_m = 0.5 * (Q_l + Q_r)
+  n = [1, 0, 0]
+  # s_l = min(0, minimum(get_eigvals(eos, Q_m, n)), minimum(get_eigvals(eos, Q_l, n)))
+  # s_r = max(0, maximum(get_eigvals(eos, Q_m, n)), maximum(get_eigvals(eos, Q_r, n)))
+  s_l = min(0, minimum(get_eigvals(eos, Q_m, n)), minimum(eigvals[1]))
+  s_r = max(0, maximum(get_eigvals(eos, Q_m, n)), maximum(eigvals[2]))
+
+ 
+
+  function RightEV(eos::T, Q, sl, sr)
+    p2c_flux = p -> flux(eos, p)
+    dFdQ = jacobian( p -> p2c_flux(p), Q)
+    dFdQ_corr = matrix_corr(eos,Q)
+    A = dFdQ + dFdQ_corr
+    evals, right, left =  eigenstructure(A)
+    Lambda = Diagonal(evals)
+    Lambda_abs = Diagonal(abs.(evals))
+    Lambda_plus = 0.5*(Lambda+Lambda_abs)
+    Lambda_minus = 0.5*(Lambda-Lambda_abs)
+    delta = Matrix{Float64}(I,size(Lambda,1),size(Lambda,2)) - 1.0/(sl-1e-14)*Lambda_minus - 1.0/(sr+1e-14)*Lambda_plus
+    mat = right*delta*left
+    return mat
+  
+  end
+  Q_hll = (Q_r * s_r - Q_l * s_l - flux(eos, Q_r) + flux(eos, Q_l)) / (s_r - s_l)
+  term = RightEV(eos, Q_m, s_l, s_r)*(Q_r-Q_l)
+  ids_pos = 4
+  min_ = 1e-6
+  xi_out = Q_hll + term
+  xi_in =  Q_hll - term
+  alpha = 1.0
+ if (xi_in[ids_pos] < min_)
+  	alpha = min(alpha, Q_hll[ids_pos]/term[ids_pos]) 
+  end
+ if (xi_out[ids_pos] < min_)
+  	alpha = min(alpha,-Q_hll[ids_pos]/term[ids_pos])
+  end
+ 
+  dm = -s_l / (s_r - s_l) * (flux(eos, Q_r) - flux(eos, Q_l)) + s_l * s_r / (s_r - s_l) * (Q_r - Q_l) - alpha*s_r*s_l/(s_r-s_l)*term
+  dp = s_r / (s_r - s_l) * (flux(eos, Q_r) - flux(eos, Q_l)) - s_l * s_r / (s_r - s_l) * (Q_r - Q_l)  + alpha*s_r*s_l/(s_r-s_l)*term
+  
+  return dm, dp
+end
+
 end # module NumFluxes
 
 # EOF

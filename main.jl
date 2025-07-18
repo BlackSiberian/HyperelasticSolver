@@ -14,7 +14,7 @@ include("./Relaxation.jl")
 
 # Только то, что нужно в main.jl
 using .EquationsOfState: EoS, Barton2009, Stiffened
-using .Hyperelasticity: prim2cons, cons2prim, initial_states, get_eigvals, cons2data#, postproc_arrays
+using .Hyperelasticity: prim2cons, cons2prim, initial_states, get_eigvals#, postproc_arrays
 # using .HyperelasticityMPh: initial_states, cons2prim_mph, prim2cons_mph, get_eigvals, cons2data_mph#, postproc_arrays
 using .NumFluxes: lxf, hll
 using .Relaxation: relaxation
@@ -38,6 +38,16 @@ function update_cell(Q::Array{<:Any,2}, flux_num::Function, lambda, eos::T) wher
   return Q - 1.0 / lambda * (F_r - F_l)
 end
 ###
+
+function update_cell(Q::Array{<:Any,2}, flux_num::Function, eigvals::Array{<:Any,1}, dtdx, eos::T) where {T<:EoS}
+  Q_l, Q, Q_r = Q[:, 1], Q[:, 2], Q[:, 3]
+  # For HLL method
+  F_l, _, NF_l = flux_num(eos, Q_l, Q, eigvals[1:2])
+  F_r, NF_r, _ = flux_num(eos, Q, Q_r, eigvals[2:3])
+
+  return Q - dtdx * ((F_r - F_l) + (NF_r + NF_l))
+end
+
 
 # Only multiphase
 function update_cell(Q::Array{<:Any,2}, flux_num::Function, eigvals::Array{<:Any,1}, dtdx, eos::Tuple{T,T}) where {T<:EoS}
@@ -81,11 +91,9 @@ end
 function save_data_plt(fname::String, Q::Array{<:Any,2})
   io = open(fname, "w")
   nx = size(Q)[2]
-  # write(io, "a1\tr1\tu11\tu21\tu31\tS1\tT111\tT211\tT311\tT121\tT221\tT321\tT131\tT231\tT331\ta2\tr2\tu12\tu22\tu32\tS2\tT112\tT212\tT312\tT122\tT222\tT322\tT132\tT232\tT332", "\n")
-  # write(io, "r\tu1\tu2\tu3\tS\tT11\tT21\tT31\tT12\tT22\tT32\tT13\tT23\tT33")
-  write(io, "r\tu1\tu2\tu3\tS\tT11\tT21\tT31\tT12\tT22\tT32\tT13\tT23\tT33\tTeta\tP\tS11\tS12\tS13\tS21\tS22\tS23\tS31\tS32\tS33\tS11^2/4mu\tS12^2/4mu\tS13^2/4mu\tS21^2/4mu\tS22^2/4mu\tS23^2/4mu\tS31^2/4mu\tS32^2/4mu\tS33^2/4mu", "\n")
+  write(io, "a1\tr1\tu11\tu21\tu31\tS1\tT111\tT211\tT311\tT121\tT221\tT321\tT131\tT231\tT331\ta2\tr2\tu12\tu22\tu32\tS2\tT112\tT212\tT312\tT122\tT222\tT322\tT132\tT232\tT332", "\n")
   for i in 1:nx
-    D = cons2data(eos, Q[:, i])
+    D = cons2data_mph(eos, Q[:, i])
     write(io, join(D, "\t"), "\n")
   end
   close(io)
@@ -150,18 +158,18 @@ end
 # Set equation of state for each phase
 # eos = (Barton2009(), Barton2009(_rho0=8.93, _c0=6.22, _cv=9.0e-4, _t0=300, _b0=3.16, _alpha=1, _beta=3.577, _gamma=2.088))
 # eos = (Barton2009(), Barton2009())
-# eos = Barton2009()
-eos = Stiffened()
+eos = Barton2009()
+#eos = Stiffened()
 # eos = Stiffened(rho0=2780, s=1.338, c0=5330, cv=9.3e2, mu=27.6e9, T0=300, G0=2.13e9, S0=1e6)
-testcase = 4    # Select the test case
+testcase = 1   # Select the test case
 
 log_freq = 10   # Log frequency
 
 
 X = 1.0     # Coordinate boundary [m]
-T = 0.035   # Time boundary [1e-5 s]
+T = 0.06  # Time boundary [1e-5 s]
 
-nx = 4000   # Number of steps on dimension coordinate
+nx = 500  # Number of steps on dimension coordinate
 cfl = 0.95  # Courant-Friedrichs-Levy number
 dt = 5 * 1e-6
 
@@ -242,10 +250,11 @@ while t < T
   Q1[:, begin] = Q0[:, begin]
   Q1[:, end] = Q0[:, end]
   Threads.@threads for i in 2:nx-1
+   # print("update cell",i)
     # Old LxF method call
-    Q1[:, i] = update_cell(Q0[:, i-1:i+1], lxf, dx / dt, eos)
+    #Q1[:, i] = update_cell(Q0[:, i-1:i+1], lxf, dx / dt, eos)
     # Q1[:, i] = update_cell(Q0[:, i-1:i+1], lxf, eigvals[i-1:i+1], dx / dt, eos)
-    # Q1[:, i] = update_cell(Q0[:, i-1:i+1], hll, eigvals[i-1:i+1], dt / dx, eos)
+    Q1[:, i] = update_cell(Q0[:, i-1:i+1], hll, eigvals[i-1:i+1], dt / dx, eos)
   end
   # Q2 = similar(Q0)
   # Threads.@threads for i in 1:nx
@@ -271,8 +280,8 @@ while t < T
 end  # while t < T
 
 fname = joinpath(dir_name, "result.csv")
-save_data_plt(fname, Q0)
-# save_data(fname, Q0)
+# save_data_plt(fname, Q0)
+save_data(fname, Q0)
 @info @sprintf("Result solution saved to: %s\n", fname)
 
 # ##############################################################################
@@ -300,7 +309,7 @@ save_data_plt(fname, Q0)
 #     hyperelasticitymph_postproc.jl
 #    
 
-include("hyperelasticity_postproc.jl")
+# include("hyperelasticitymph_postproc.jl")
 
 @info @sprintf("Done!")
 
