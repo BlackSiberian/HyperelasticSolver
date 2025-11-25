@@ -5,8 +5,8 @@
 
 module NumFluxes
 
-using ..Hyperelasticity: flux
-# using ..HyperelasticityMPh: flux_mph, noncons_flux, get_eigvals
+# using ..Hyperelasticity: flux
+using ..HyperelasticityMPh: flux_mph, noncons_flux, get_eigvals
 using ..EquationsOfState: EoS
 using ForwardDiff: derivative
 using FastGaussQuadrature: gausslobatto, gausslegendre

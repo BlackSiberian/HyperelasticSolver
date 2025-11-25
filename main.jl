@@ -7,15 +7,15 @@ using Logging, LoggingExtras
 include("./SimpleLA.jl")
 include("./Strains.jl");
 include("./EquationsOfState.jl")
-include("./Hyperelasticity.jl")
-# include("./HyperelasticityMPh.jl")
+# include("./Hyperelasticity.jl")
+include("./HyperelasticityMPh.jl")
 include("./NumFluxes.jl")
 include("./Relaxation.jl")
 
 # Только то, что нужно в main.jl
 using .EquationsOfState: EoS, Barton2009, Stiffened
-using .Hyperelasticity: prim2cons, cons2prim, initial_states, get_eigvals, cons2data#, postproc_arrays
-# using .HyperelasticityMPh: initial_states, cons2prim_mph, prim2cons_mph, get_eigvals, cons2data_mph#, postproc_arrays
+# using .Hyperelasticity: prim2cons, cons2prim, initial_states, get_eigvals, cons2data#, postproc_arrays
+using .HyperelasticityMPh: initial_states, cons2prim_mph, prim2cons_mph, get_eigvals, cons2data_mph#, postproc_arrays
 using .NumFluxes: lxf, hll
 using .Relaxation: relaxation
 
@@ -68,12 +68,13 @@ function save_data(fname::String, Q::Array{<:Any,2})
   io = open(fname, "w")
   write(io, "$t\n")
   nx = size(Q)[2]
-  # write(io, "a1\tr1\tu11\tu21\tu31\tS1\tF111\tF211\tF311\tF121\tF221\tF321\tF131\tF231\tF331\ta2\tr2\tu12\tu22\tu32\tS2\tF112\tF212\tF312\tF122\tF222\tF322\tF132\tF232\tF332", "\n")
-  write(io, "u1\tu2\tu3\tS\tF11\tF21\tF31\tF12\tF22\tF32\tF13\tF23\tF33")
+  write(io, "a1\tr1\tu11\tu21\tu31\tS1\tF111\tF211\tF311\tF121\tF221\tF321\tF131\tF231\tF331\ta2\tr2\tu12\tu22\tu32\tS2\tF112\tF212\tF312\tF122\tF222\tF322\tF132\tF232\tF332", "\n")
+  # write(io, "u1\tu2\tu3\tS\tF11\tF21\tF31\tF12\tF22\tF32\tF13\tF23\tF33", "\n")
   for i in 1:nx
-    # P = cons2prim_mph(eos, Q[:, i])
-    P = cons2prim(eos, Q[:, i])
+    P = cons2prim_mph(eos, Q[:, i])
+    # P = cons2prim(eos, Q[:, i])
     write(io, join(P, "\t"), "\n")
+    # write(io, join(Q[:, i], "\t", "\n"))
   end
   close(io)
 end
@@ -85,7 +86,7 @@ function save_data_plt(fname::String, Q::Array{<:Any,2})
   # write(io, "r\tu1\tu2\tu3\tS\tT11\tT21\tT31\tT12\tT22\tT32\tT13\tT23\tT33")
   write(io, "r\tu1\tu2\tu3\tS\tT11\tT21\tT31\tT12\tT22\tT32\tT13\tT23\tT33\tTeta\tP\tS11\tS12\tS13\tS21\tS22\tS23\tS31\tS32\tS33\tS11^2/4mu\tS12^2/4mu\tS13^2/4mu\tS21^2/4mu\tS22^2/4mu\tS23^2/4mu\tS31^2/4mu\tS32^2/4mu\tS33^2/4mu", "\n")
   for i in 1:nx
-    D = cons2data(eos, Q[:, i])
+    D = cons2data_mph(eos, Q[:, i])
     write(io, join(D, "\t"), "\n")
   end
   close(io)
@@ -115,8 +116,8 @@ Sets the initial condition with two states for the Riemann problem with `nx` cel
 """
 function initial_condition(Ql, Qr, nx)
   # Эта функция ничего не знает про физику, но знает про сетку.
-  # Q = Array{Float64}(undef, 30, nx)
-  Q = Array{Float64}(undef, 13, nx)
+  Q = Array{Float64}(undef, 30, nx)
+  # Q = Array{Float64}(undef, 13, nx)
   for i in 1:nx
     Q[:, i] = (i - 1) < nx / 2 ? Ql : Qr
   end
@@ -151,17 +152,18 @@ end
 # eos = (Barton2009(), Barton2009(_rho0=8.93, _c0=6.22, _cv=9.0e-4, _t0=300, _b0=3.16, _alpha=1, _beta=3.577, _gamma=2.088))
 # eos = (Barton2009(), Barton2009())
 # eos = Barton2009()
-eos = Stiffened()
-# eos = Stiffened(rho0=2780, s=1.338, c0=5330, cv=9.3e2, mu=27.6e9, T0=300, G0=2.13e9, S0=1e6)
-testcase = 4    # Select the test case
+# eos = Stiffened()
+eos = (Stiffened(rho0=2780, s=1.338, c0=5330, cv=9.3e2, mu=27.6e9, T0=300, G0=2.13, S0=0),
+       Stiffened(rho0=8930, s=1.49,  c0=3970, cv=3.9e2, mu=45.0e9, T0=300, G0=2,    S0=0))
+testcase = 11   # Select the test case
 
 log_freq = 10   # Log frequency
 
 
-X = 1.0     # Coordinate boundary [m]
-T = 0.035   # Time boundary [1e-5 s]
+X = 0.1     # Coordinate boundary [m]
+T = 2.5e-6   # Time boundary [1e-5 s]
 
-nx = 4000   # Number of steps on dimension coordinate
+nx = 2000   # Number of steps on dimension coordinate
 cfl = 0.95  # Courant-Friedrichs-Levy number
 dt = 5 * 1e-6
 
@@ -210,8 +212,8 @@ else
   global Q0 = similar(P0)
   P0, t, nx = read_data(last_file) # Read the last file
   for i in 1:nx
-    # Q0[:, i] = prim2cons_mph(eos, P0[:, i])
-    Q0[:, i] = prim2cons(eos, P0[:, i])
+    Q0[:, i] = prim2cons_mph(eos, P0[:, i])
+    # Q0[:, i] = prim2cons(eos, P0[:, i])
   end
 end
 
@@ -243,18 +245,20 @@ while t < T
   Q1[:, end] = Q0[:, end]
   Threads.@threads for i in 2:nx-1
     # Old LxF method call
-    Q1[:, i] = update_cell(Q0[:, i-1:i+1], lxf, dx / dt, eos)
+    # Q1[:, i] = update_cell(Q0[:, i-1:i+1], lxf, dx / dt, eos)
     # Q1[:, i] = update_cell(Q0[:, i-1:i+1], lxf, eigvals[i-1:i+1], dx / dt, eos)
-    # Q1[:, i] = update_cell(Q0[:, i-1:i+1], hll, eigvals[i-1:i+1], dt / dx, eos)
+    Q1[:, i] = update_cell(Q0[:, i-1:i+1], hll, eigvals[i-1:i+1], dt / dx, eos)
   end
-  # Q2 = similar(Q0)
-  # Threads.@threads for i in 1:nx
-  #   Q2[:, i] = relaxation(eos, Q1[:, i], dt)
-  # end
-  # global Q0 = copy(Q2)
-  global Q0 = copy(Q1)
+  Q2 = similar(Q0)
+  Threads.@threads for i in 1:nx
+  #   println("Node $i")
+  Q2[:, i] = relaxation(eos, Q1[:, i], dt)
+  #   println("----------------------------------------")
+  end
+  global Q0 = copy(Q2)
+  # global Q0 = copy(Q1)
 
-  msg = @sprintf("Step = %d,\t t = %.6f / %.6f,\t Δt = %.6f\n", step_num, t, T, dt)
+  msg = @sprintf("Step = %d,\t t = %.3e / %.3e,\t Δt = %.3e\n", step_num, t, T, dt)
 
   # Saving the solution array to a file
   if step_num % log_freq == 0
@@ -266,13 +270,14 @@ while t < T
   @info msg
 
   if step_num >= 10000
+  # if step_num >= 1
     break
   end
 end  # while t < T
 
 fname = joinpath(dir_name, "result.csv")
-save_data_plt(fname, Q0)
-# save_data(fname, Q0)
+# save_data_plt(fname, Q0)
+save_data(fname, Q0)
 @info @sprintf("Result solution saved to: %s\n", fname)
 
 # ##############################################################################
@@ -300,7 +305,7 @@ save_data_plt(fname, Q0)
 #     hyperelasticitymph_postproc.jl
 #    
 
-include("hyperelasticity_postproc.jl")
+include("hyperelasticitymph_postproc.jl")
 
 @info @sprintf("Done!")
 

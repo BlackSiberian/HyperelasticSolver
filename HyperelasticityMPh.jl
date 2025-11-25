@@ -7,7 +7,7 @@ module HyperelasticityMPh
 
 using LinearAlgebra: inv, transpose, det, tr, I, dot, eigvals
 using ForwardDiff: derivative
-using ..EquationsOfState: energy, entropy, stress, EoS, Barton2009, Hank2016, acoustic
+using ..EquationsOfState: energy, entropy, stress, EoS, Barton2009, Stiffened, acoustic
 using ..Strains: finger, invariants
 
 export prim2cons_mph, cons2prim_mph, flux_mph, noncons_flux, initial_states, get_eigvals #, postproc_arrays
@@ -20,15 +20,15 @@ export prim2cons_mph, cons2prim_mph, flux_mph, noncons_flux, initial_states, get
 # 2. cons2prim и prim2cons --- принимают вектора нужной длины и отдают
 #    вектора такой же длины (не так, как сейчас для простой
 #    гиперупругости).
-#                               
+#
 # 3. flux() --- принимает <<консервативные>> переменные
 #    (которые под производной по времени), отдает три величины:
-#    физический поток, его якобиан и неконсервативную матрицу B  
+#    физический поток, его якобиан и неконсервативную матрицу B
 #
 # 4. Так как фазы независимы по УрС, то переход от первичных к
 #    консервативным и наоборот, вычисление энтропии, энергии и так далее
 #    --- всегда можно сделать локально для каждой фазы.
-#    
+#
 # 5. Как можно реже переводить вектор длины 9 в тензор и наоборот.
 #    На самом деле, нам практически никогда не нужны тензоры как
 #    матрицы 3 на 3.
@@ -38,13 +38,13 @@ export prim2cons_mph, cons2prim_mph, flux_mph, noncons_flux, initial_states, get
 #
 # 6. Помнить, что теперь EquationsOfStates.jl --- для всех задач.
 #    Поэтому нельзя ломать совместимость. Дописываем методы, не трогая
-#    старые! 
+#    старые!
 #
 # 7. Функции для задания начальных условий и визуализации задаются в
 #    соответствующих модулях с "физикой".
 #    Потом нужно будет отцепить их во вспомогательные, чтобы не
 #    мешать с содержательной частью.
-#    
+#
 #  8. Общее правило: main.jl --- без изменений при смене модели,
 #     EquationsOfState.jl, Strains.jl --- тоже.
 #     минимальные изменения могут быть, но по возможности,
@@ -109,7 +109,7 @@ function cons2prim(eos::T, Q::Array{<:Any,1}) where {T<:EoS}
   frac = Q[1]
   # den = Q[2]
   # true_den = den / frac
- 
+
   FQ = reshape(Q[7:15] ./ frac, (3, 3))
   true_den = sqrt(det(FQ) / eos.rho0)
   den = frac * true_den
@@ -143,7 +143,7 @@ function cons2data(eos::T, Q::Array{<:Any,1}) where {T<:EoS}
   D = similar(Q)
 
   frac = Q[1]
- 
+
   FQ = reshape(Q[7:15] ./ frac, (3, 3))
   true_den = sqrt(det(FQ) / eos.rho0)
   den = frac * true_den
@@ -476,15 +476,21 @@ function initial_states(eos::Tuple{T,T}, testcase::Int) where {T<:EoS}
     F_r_1 = F_r_2 = F_r
     S_r_1 = S_r_2 = 0.0
   elseif testcase == 11
-    alpha_l_1 = alpha_r_1 = 0.5
-    alpha_l_2 = alpha_r_2 = 0.5
+    eps = 1e-2
+    alpha_l_1 = alpha_r_2 = 1.0 - eps
+    alpha_l_2 = alpha_r_1 = eps
 
-    den_1 = den_2 = 8.93
+    den_1 = 2780
+    den_2 = 8930
 
-    u_l_1 = u_l_2 = [0, -0.010, 0]
-    u_r_1 = u_r_2 = [0, 0.010, 0]
+    u_l_1 = u_l_2 = [0, -10, 0]
+    u_r_1 = u_r_2 = [0, 10, 0]
 
-    S_l_1 = S_l_2 = S_r_1 = S_r_2 = 1.0e-2
+    S_l_1 = 55.626
+    S_r_1 = 0.0573
+
+    S_l_2 = 18.238
+    S_r_2 = 0.0187
 
     F_l_1 = F_l_2 = [1 0 0; 0 1 0; 0 0 1]
     F_r_1 = F_r_2 = [1 0 0; 0 1 0; 0 0 1]
