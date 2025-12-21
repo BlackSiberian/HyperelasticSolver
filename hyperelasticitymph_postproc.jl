@@ -9,6 +9,8 @@ using ForwardDiff: derivative
 
 export generate_plots_from_simulation_2ph, generate_plots_from_file_2ph
 
+pythonplot()
+
 #==========================================================================================
                       НОВАЯ ФУНКЦИЯ-ПОМОЩНИК ДЛЯ ОБРАБОТКИ ДАННЫХ
 ==========================================================================================#
@@ -62,14 +64,22 @@ function _create_and_save_plots_2ph(x_coords, data1, data2, plotpath::String;
 
     # Конфигурации теперь содержат данные для двух фаз
     plot_configs = [
-        (d1=den1,      d2=den2,      title="Плотность (t=$(time_str) с)",    ylabel=L"$\rho, \, %$(units.den)$", filename="test$(testcase)_density.png"),
-        (d1=vel1[:,1], d2=vel2[:,1], title="Скорость по X (t=$(time_str) с)",        ylabel=L"$u_x, \, %$(units.vel)$",  filename="test$(testcase)_velocity_1.png"),
-        (d1=vel1[:,2], d2=vel2[:,2], title="Скорость по Y (t=$(time_str) с)",        ylabel=L"$u_y, \, %$(units.vel)$",  filename="test$(testcase)_velocity_2.png"),
-        (d1=pres1,     d2=pres2,     title="Давление (t=$(time_str) с)",             ylabel=L"$P, \, %$(units.pres)$", filename="test$(testcase)_pressure.png"),
+        # (d1=den1,      d2=den2,      title="Плотность (t=$(time_str) с)",    ylabel=L"$\rho, \, %$(units.den)$", filename="test$(testcase)_density.png"),
+        # (d1=vel1[:,1], d2=vel2[:,1], title="Скорость по X (t=$(time_str) с)",        ylabel=L"$u_x, \, %$(units.vel)$",  filename="test$(testcase)_velocity_1.png"),
+        # (d1=vel1[:,2], d2=vel2[:,2], title="Скорость по Y (t=$(time_str) с)",        ylabel=L"$u_y, \, %$(units.vel)$",  filename="test$(testcase)_velocity_2.png"),
+        # (d1=pres1,     d2=pres2,     title="Давление (t=$(time_str) с)",             ylabel=L"$P, \, %$(units.pres)$", filename="test$(testcase)_pressure.png"),
+        # # (d1=temp1,     d2=temp2,     title="Температура (t=$(time_str) с)",             ylabel=L"$P, \, %$(units.temp)$", filename="test$(testcase)_temperature.png"),
+        # (d1=[s[1,1] for s in strs1], d2=[s[1,1] for s in strs2], title="Напряжение XX (t=$(time_str) с)", ylabel=L"$\sigma_{xx}, \, %$(units.strs)$", filename="test$(testcase)_stress_xx.png"),
+        # # (d1=[d[1,1] for d in dist1], d2=[d[1,1] for d in dist2], title="Девиатор XX (t=$(time_str) с)", ylabel=L"$S_{xx}, \, %$(units.strs)$", filename="test$(testcase)_deviator.png"),
+        # (d1=[d[1,2] for d in dist1], d2=[d[1,2] for d in dist2], title="Девиатор XY (t=$(time_str) с)", ylabel=L"$S_{xy}, \, %$(units.strs)$", filename="test$(testcase)_deviator.png"),
+        (d1=den1,      d2=den2,      title="Плотность",    ylabel=L"$\rho, \, %$(units.den)$", filename="test$(testcase)_density.png"),
+        (d1=vel1[:,1], d2=vel2[:,1], title="Скорость по X",        ylabel=L"$u_x, \, %$(units.vel)$",  filename="test$(testcase)_velocity_1.png"),
+        (d1=vel1[:,2], d2=vel2[:,2], title="Скорость по Y",        ylabel=L"$u_y, \, %$(units.vel)$",  filename="test$(testcase)_velocity_2.png"),
+        (d1=pres1,     d2=pres2,     title="Давление",             ylabel=L"$P, \, %$(units.pres)$", filename="test$(testcase)_pressure.png"),
         # (d1=temp1,     d2=temp2,     title="Температура (t=$(time_str) с)",             ylabel=L"$P, \, %$(units.temp)$", filename="test$(testcase)_temperature.png"),
-        (d1=[s[1,1] for s in strs1], d2=[s[1,1] for s in strs2], title="Напряжение XX (t=$(time_str) с)", ylabel=L"$\sigma_{xx}, \, %$(units.strs)$", filename="test$(testcase)_stress_xx.png"),
+        (d1=[s[1,1] for s in strs1], d2=[s[1,1] for s in strs2], title="Напряжение XX", ylabel=L"$\sigma_{xx}, \, %$(units.strs)$", filename="test$(testcase)_stress_xx.png"),
         # (d1=[d[1,1] for d in dist1], d2=[d[1,1] for d in dist2], title="Девиатор XX (t=$(time_str) с)", ylabel=L"$S_{xx}, \, %$(units.strs)$", filename="test$(testcase)_deviator.png"),
-        (d1=[d[1,2] for d in dist1], d2=[d[1,2] for d in dist2], title="Девиатор XY (t=$(time_str) с)", ylabel=L"$S_{xy}, \, %$(units.strs)$", filename="test$(testcase)_deviator.png"),
+        (d1=[d[1,2] for d in dist1], d2=[d[1,2] for d in dist2], title="Девиатор напряжений XY", ylabel=L"$S_{xy}, \, %$(units.strs)$", filename="test$(testcase)_deviator.png"),
     ]
 
     # den = den1 .* frac1 .+ den2 .* frac2
@@ -84,17 +94,29 @@ function _create_and_save_plots_2ph(x_coords, data1, data2, plotpath::String;
     # )
     # savefig(p, joinpath(plotpath, den_config.filename))
 
-    analytics = readdlm("analytic_data/Test_1_multiphase.csv", ','; skipstart=2)
+    analytics = readdlm("analytic_data/Test_1_MN.csv", ','; skipstart=2)
+
+    default(
+        fontfamily="serif",
+        titlefont="serif",
+        guidefont="serif",  # Подписи осей
+        tickfont="serif",   # Цифры на осях
+        legendfont="serif"
+    )
 
     i = 0
     for config in plot_configs
         x_analytics = filter(x -> x != "", analytics[:, 1+2i])
         y_analytics = filter(x -> x != "", analytics[:, 2+2i])
-        p = plot(x_analytics, y_analytics; label="Аналитика", color=:grey)
+        p = plot(x_analytics, y_analytics;
+                 label="Уилкинс",
+                 lw=2, color=:red)
         i += 1
-        plot!(p, x_coords, config.d1; label="Фаза 1", color=:blue, legend=:best)
-        plot!(p, x_coords, config.d2; label="Фаза 2", color=:red)
-        plot!(p, x_coords, frac1 .* config.d1 + frac2 .* config.d2; label="Среднее", color=:black)
+        # plot!(p, x_coords, config.d1; label="Фаза 1", color=:blue, legend=:best)
+        # plot!(p, x_coords, config.d2; label="Фаза 2", color=:red)
+        plot!(p, x_coords, frac1 .* config.d1 + frac2 .* config.d2;
+              label="Гиперупругость",
+              lw=2.5, color=:black)
 
         plot!(p;
             title=config.title,
@@ -102,7 +124,8 @@ function _create_and_save_plots_2ph(x_coords, data1, data2, plotpath::String;
             xlabel=xlabel,
             xlims=(minimum(x_coords), maximum(x_coords)),
             minorgrid=true, grid=true,
-            size=(900,600)
+            dpi=300,
+            legend=false,
         )
         savefig(p, joinpath(plotpath, config.filename))
     end
