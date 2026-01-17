@@ -18,13 +18,15 @@ using Printf
 export relaxation
 
 function relaxation(eos::Tuple{T,T}, initial::Array{<:Any,1}, dt) where {T <: EoS}
-    toggle_print = false
-    # toggle_print = true
+    # toggle_print = false
+    toggle_print = true
 
     t_span = (0, dt)
 
-    tau_a = dt * 5000
-    tau_u = dt / 1000
+    tau_a = dt * 1e10
+    # tau_u = dt / 1000
+    # tau_u = dt / 200000
+    tau_u = dt / 2000000
     tau_t = dt * 50
 
     # tau_a = 1e10
@@ -69,10 +71,15 @@ function relaxation(eos::Tuple{T,T}, initial::Array{<:Any,1}, dt) where {T <: Eo
         print_tol(temp, "temperature")
     end
 
-    problem = ODEProblem(init_relaxation, initial, t_span, (eos, tau_a, tau_u, tau_t))
+    problem = ODEProblem(init_relaxation, initial, t_span, (eos, tau_a, tau_u, tau_t, 1.0, 0.0))
     # solution = solve(problem, TRBDF2(), dtmax= min(tau_a, tau_u, tau_t) / 10)
     # solution = solve(problem, TRBDF2(), abstol=1e-4, reltol=1e-1)
-    solution = solve(problem, TRBDF2(), abstol=1e-3, reltol=1.0)
+    # solution = solve(problem, TRBDF2(), abstol=1e-3, reltol=1.0)
+    solution = solve(problem, TRBDF2())
+    relaxed = solution.u[end]
+    problem = ODEProblem(init_relaxation, relaxed, t_span, (eos, tau_a, tau_u, tau_t, 0.0, 1.0))
+    solution = solve(problem, TRBDF2(), reltol=1e-6, dtmax=1e-11)
+    # solution = solve(problem, TRBDF2(), abstol=1e-3, reltol=1.0)
     # solution = solve(problem, TRBDF2(), abstol=1e-2, reltol=1.0)
     # solution = solve(problem, TRBDF2(), abstol=1e-1, reltol=1.0)
     # solution = solve(problem, TRBDF2(autodiff = AutoFiniteDiff()))
@@ -142,7 +149,7 @@ function relaxation(eos::Tuple{T,T}, initial::Array{<:Any,1}, dt) where {T <: Eo
 end
 
 function init_relaxation(Q::Array{<:Any,1}, params, t::Float64)
-    eos, tau_a, tau_u, tau_t = params
+    eos, tau_a, tau_u, tau_t, enable_v, enable_p = params
     S = similar(Q)
     Q = [Q[p:p+14] for p in 1:15:length(Q)]
     nph = length(Q)
@@ -159,6 +166,9 @@ function init_relaxation(Q::Array{<:Any,1}, params, t::Float64)
     den = frac .* true_den
 
     vel = [Q[p][3:5] / den[p] for p in 1:nph]
+    if enable_v < 0.5
+        vel = [0.5 * (vel[1] + vel[2]) for _ in 1:2]
+    end
     e_total = [Q[p][6] / den[p] for p in 1:nph]
     e_kin = [sum(vel[p] .^ 2) / 2 for p in 1:nph]
     e_int = e_total - e_kin
@@ -183,11 +193,11 @@ function init_relaxation(Q::Array{<:Any,1}, params, t::Float64)
 
     for p in 1:nph
         shift = (p - 1) * 15
-        S[shift + 1] =  1.00 * 1/3 / tau_a * tr_(K[3-p] - K[p])
+        S[shift + 1] =  enable_p * 1/3 / tau_a * tr_(K[3-p] - K[p])
         S[shift + 2] = 0
-        S[shift + 3: shift + 5] = [1/tau_u* (vel[3-p][i] - vel[p][i]) for i in 1:3]
-        S[shift + 6] = 1/tau_u * sum([w[k] * (vel[3-p][k] - vel[p][k]) for k in 1:3]) + 1.0 * 1/3 / tau_a * pi * tr_(K[p] - K[3-p]) + 0 * 1/tau_t * (temp[3-p] - temp[p])
-        S[shift + 7: shift + 15] = [1.0 * 1/9 / tau_a * true_den[p] * def_grad[p][i] * tr_(K[3-p] - K[p]) for i in 1:9]
+        S[shift + 3: shift + 5] = [enable_v * 1/tau_u* (vel[3-p][i] - vel[p][i]) for i in 1:3]
+        S[shift + 6] = enable_v * 1/tau_u * sum([w[k] * (vel[3-p][k] - vel[p][k]) for k in 1:3]) + enable_p * 1/3 / tau_a * pi * tr_(K[p] - K[3-p]) + 0.0 * 1/tau_t * (temp[3-p] - temp[p])
+        S[shift + 7: shift + 15] = [enable_p * 1/9 / tau_a * true_den[p] * def_grad[p][i] * tr_(K[3-p] - K[p]) for i in 1:9]
     end
     # Sum syncronnically
     # println("Sum of righthand side is ", (sum([S[i] + S[i + 15] for i in 1:15])))
