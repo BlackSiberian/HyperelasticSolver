@@ -11,6 +11,7 @@ include("./EquationsOfState.jl")
 include("./HyperelasticityMPh.jl")
 include("./NumFluxes.jl")
 include("./Relaxation.jl")
+include("./RelaxationInst.jl")
 
 # Только то, что нужно в main.jl
 using .EquationsOfState: EoS, Barton2009, Stiffened
@@ -18,6 +19,7 @@ using .EquationsOfState: EoS, Barton2009, Stiffened
 using .HyperelasticityMPh: initial_states, cons2prim_mph, prim2cons_mph, get_eigvals, cons2data_mph#, postproc_arrays
 using .NumFluxes: lxf, hll
 using .Relaxation: relaxation
+using .RelaxationInst
 
 """
     update_cell(Q::Array{<:Any,2}, flux_num::Function, lambda, eos::T) where {T <: EoS}
@@ -74,7 +76,7 @@ function save_data(fname::String, Q::Array{<:Any,2})
     P = cons2prim_mph(eos, Q[:, i])
     # P = cons2prim(eos, Q[:, i])
     write(io, join(P, "\t"), "\n")
-    # write(io, join(Q[:, i], "\t", "\n"))
+    # write(io, join(Q[:, i], "\t"), "\n")
   end
   close(io)
 end
@@ -251,9 +253,10 @@ while t < T
   end
   Q2 = similar(Q0)
   Threads.@threads for i in 1:nx
-  #   println("Node $i")
-  Q2[:, i] = relaxation(eos, Q1[:, i], dt)
-  #   println("----------------------------------------")
+    #   println("Node $i")
+    # Q2[:, i] = relaxation(eos, Q1[:, i], dt)
+    Q2[:, i] = relaxation_inst(eos, Q1[:, i])
+    #   println("----------------------------------------")
   end
   global Q0 = copy(Q2)
   # global Q0 = copy(Q1)
