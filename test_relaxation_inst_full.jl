@@ -24,9 +24,11 @@ println("=== Подготовка данных ===")
 eos = (Barton2009(), Barton2009())
 
 # Создаём начальное состояние Q0 (длины 30)
-# Ql, Qr = initial_states(eos, 3)
+# Ql, Qr = initial_states(eos, 71)
 # Q0 = Array{Float64}(undef, 30)
+# Q0 = vcat(Ql[1:15], Ql[1:15])
 # Q0 = Ql
+
 Q0 = [0.48963727371523286, 5.485159330384803, 1.4079647424910786, -0.1322314128744362, 0.042184118933328435, 3.402647885719543, 5.006549722221346, 0.05997698845311275, -0.07099740016438945, -0.006640764462277228, 5.284149265409944, -1.7733417080117044e-6, -0.02373994188127283, 0.009221746550980396, 5.006038602787315, 0.5103627262847672, 4.036691065724143, 2.206356789120675, 0.07574243446968718, 0.20202280596005381, 5.242252551399408, 3.8912153430440783, -0.036356406279523176, -0.09035332031850854, -0.00575591221990463, 4.494168994939205, -2.742044533662284e-5, -0.020251544106153336, 0.08327928079593491, 4.257538462812765]
 println(cons2prim_mph(eos, Q0))
 
@@ -45,7 +47,7 @@ ent0 = [P0_parts[i][6] for i in 1:2]
 def_grad0 = [P0_parts[i][7:15] for i in 1:2]
 G0 = [finger(def_grad0[i]) for i in 1:2]
 e_int0 = [energy(eos[i], ent0[i], G0[i]) for i in 1:2]
-strs0 = [reshape(frac0[i] * stress(eos[i], ent0[i], def_grad0[i]), (3, 3)) for i in 1:2]
+strs0 = [reshape(stress(eos[i], ent0[i], def_grad0[i]), (3, 3)) for i in 1:2]
 pres0 = [- 1/3 * tr_(strs0[i]) for i in 1:2]
 
 println("\n--- Анализ до релаксации ---")
@@ -53,14 +55,15 @@ println("Фракции: ", frac0)
 println("Плотности (rho): ", den0)
 println("Скорости: ", vel0)
 println("Давления: ", pres0)
+println("Энергии: ", e_int0)
 println("Температуры (через derivative): ", [derivative(S -> energy(eos[i], S, G0[i]), ent0[i]) for i in 1:2])
 
 # --- Выполнение релаксации скорости ---
 println("\n=== Выполнение релаксации скорости ===")
 
 # Вызов relaxation_vel
-# Q_after_vel = relaxation_vel(eos, Q0)
-Q_after_vel = relaxation_vel_newton(eos, Q0)
+Q_after_vel = relaxation_vel(eos, Q0)
+# Q_after_vel = relaxation_vel_newton(eos, Q0)
 
 println("Выходной вектор Q_after_vel (после релаксации скорости):")
 println(Q_after_vel)
@@ -77,7 +80,8 @@ ent_after_vel = [P_after_vel_parts[i][6] for i in 1:2]
 def_grad_after_vel = [P_after_vel_parts[i][7:15] for i in 1:2]
 G_after_vel = [finger(def_grad_after_vel[i]) for i in 1:2]
 e_int_after_vel = [energy(eos[i], ent_after_vel[i], G_after_vel[i]) for i in 1:2]
-def_grad_after_vel = [P_after_vel_parts[i][7:15] for i in 1:2]
+strs_after_vel = [reshape(stress(eos[i], ent_after_vel[i], def_grad_after_vel[i]), (3, 3)) for i in 1:2]
+pres_after_vel = [- 1/3 * tr_(strs_after_vel[i]) for i in 1:2]
 
 println("\n--- Анализ после релаксации скорости ---")
 println("Фракции: ", frac_after_vel)
@@ -85,6 +89,7 @@ println("Плотности (rho): ", den_after_vel)
 println("Скорости: ", vel_after_vel)
 println("Энергии: ", e_int_after_vel)
 println("Энтропии: ", ent_after_vel)
+println("Давления: ", pres_after_vel)
 
 # --- Выполнение релаксации ---
 println("\n=== Выполнение релаксации ===")
@@ -107,7 +112,7 @@ ent_relaxed = [P_relaxed_parts[i][6] for i in 1:2]
 def_grad_relaxed = [P_relaxed_parts[i][7:15] for i in 1:2]
 G_relaxed = [finger(def_grad_relaxed[i]) for i in 1:2]
 e_int_relaxed = [energy(eos[i], ent_relaxed[i], G_relaxed[i]) for i in 1:2]
-strs_relaxed = [reshape(frac_relaxed[i] * stress(eos[i], ent_relaxed[i], def_grad_relaxed[i]), (3, 3)) for i in 1:2]
+strs_relaxed = [reshape(stress(eos[i], ent_relaxed[i], def_grad_relaxed[i]), (3, 3)) for i in 1:2]
 pres_relaxed = [- 1/3 * tr_(strs_relaxed[i]) for i in 1:2]
 
 println("\n--- Анализ после релаксации ---")
@@ -117,6 +122,8 @@ println("Скорости: ", vel_relaxed)
 println("Энергии: ", e_int_relaxed)
 println("Энтропии: ", ent_relaxed)
 println("Давления: ", pres_relaxed)
+println("Градиент деформации 1: ", def_grad_relaxed[1])
+println("Градиент деформации 2: ", def_grad_relaxed[2])
 println("Температуры (через derivative): ", [derivative(S -> energy(eos[i], S, G_relaxed[i]), ent_relaxed[i]) for i in 1:2])
 
 # --- Проверка релаксации ---
