@@ -10,7 +10,7 @@ using SpecialFunctions: expinti
 using ForwardDiff: derivative, gradient, jacobian
 using ..Strains: finger, invariants#, di1dg, di2dg, di3dg
 
-export energy, entropy, stress, Barton2009, Stiffened, EoS, acoustic
+export energy, entropy, stress, Barton2009, Stiffened, Hayes, EoS, acoustic
 
 
 # ##############################################################################
@@ -41,7 +41,7 @@ energy(eos::T, S, G::Array{<:Any,1}) where {T<:EoS} = error("energy() isn't impl
     entropy(eos::eos, e_int, G::Array{<:Any,1}) where {T <: EoS}
 
 Computes the value of the internal energy for `eos` equation of state
- 
+
 - `e_int` : an internal energy
 - `G` : a Finger's tensor
 """
@@ -49,7 +49,7 @@ entropy(eos::T, e_int, G::Array{<:Any,1}) where {T<:EoS} = error("entropy() isn'
 
 """
     stress(eos::T, e_int, F::Array{<:Any,1}) where {T <: EoS}
-    
+
 Computes stress tensor for `eos` equation of state.
 
 - `den` : a density
@@ -202,7 +202,7 @@ end
 """
     Returns density computed from conservative variables for GRP model.
     Actual input is ``\\rho \\tn{F}``.
-    TODO: Make Finer type and the function 
+    TODO: Make Finer type and the function
           to accept only Finger tenors and not others!
 """
 function density(eos::Barton2009, Q::Array{<:Any,1})
@@ -362,6 +362,88 @@ function entropy(eos::Stiffened, e_int, G::Array{<:Any,1})
   return ent
 end
 
+
+# ##############################################################################
+# Hayes
+# ##############################################################################
+
+"""
+    Hayes EoS
+"""
+struct Hayes <: EoS
+    # Primary parameters
+    rho0    # Initial density [g/cm^3]
+    s
+    c0      # Speed of sound [km/s]
+    cv      # Heat capacity [kJ/(g*K)]
+    mu      # Shear elastic modulus
+    T0      # Initial temperature
+    G0      # Mie-Gruneisen parameter
+    S0      # Initial entropy
+    P0      # Initial pressure
+    e0      # Initial energy
+
+    function Hayes(; rho0=880.0, s=2.17, c0=1570, cv=1900, mu=2.2e6, T0=300, G0=0.7, S0=1e-6, P0=1e5, e0=1e-6)
+        return new(rho0, s, c0, cv, mu, T0, G0, S0, P0, e0)
+    end
+end # struct Hayes <: EoS
+
+function energy(eos::Hayes, S, G::Array{<:Any,1})
+    i = invariants(G)
+
+    rho = eos.rho0 * sqrt(i[3])
+    V = 1 / rho
+    V0 = 1 / eos.rho0
+    eta = V / V0
+    expS = exp((S - eos.S0)/eos.cv - eos.G0 * (eta - 1))
+
+    K0 = eos.rho0 * (eos.c0^2 - eos.G0^2 * eos.cv * eos.T0)
+    N = (4eos.s - 1) + (4eos.s - eos.G0) * (eos.G0^2 * eos.cv * eos.T0 / (V0 * K0))
+
+    U = eos.e0 + (S - eos.S0) * eos.T0 * expS +
+        eos.cv * eos.T0 * (eos.G0 * (1 - eta) + 1) * (expS - 1) -
+        eos.cv * eos.T0 * expS * ((S - eos.S0) / eos.cv - eos.G0 * (eta - 1)) +
+        K0 * V0 * (eta^-(N-1) - (N - 1) * (1 - eta) - 1) / ((N - 1) * N) +
+        eos.P0 * (V0 - V)
+
+    i[2] = -2i[2] + i[1]^2
+    W = eos.mu / 4eos.rho0 * (i[2] / cbrt(i[3])^2 - 2i[1] / cbrt(i[3]) + 3)
+    return U + W
+end
+
+function entropy(eos::Hayes, e_int, G::Array{<:Any,1})
+    i = invariants(G)
+    i[2] = -2i[2] + i[1]^2
+
+    W = eos.mu / 4eos.rho0 * (i[2] / cbrt(i[3])^2 - 2i[1]/cbrt(i[3]) + 3)
+
+    rho = eos.rho0 * sqrt(i[3])
+    V = 1 / rho
+    V0 = 1 / eos.rho0
+    eta = V / V0
+    K0 = eos.rho0 * (eos.c0^2 - eos.G0^2 * eos.cv * eos.T0)
+    N = (4eos.s - 1) + (4eos.s - eos.G0) * (eos.G0^2 * eos.cv * eos.T0 / (V0 * K0))
+
+    U = e_int - W
+
+    P = eos.P0 + K0 / N * (
+            (eta^-N - 1)
+            - eos.G0 / (N-1) * (eta^-(N-1) - 1)
+            + eos.G0 * (1 - eta)
+        ) +
+        eos.G0 / V0 * (
+            U - eos.e0
+            + eos.cv * eos.T0 * eos.G0 * (1 - eta)
+            - eos.P0*(V0 - V)
+        )
+
+    T = eos.T0 + V0 / (eos.cv * eos.G0) * (P - eos.P0 - K0 / N * (eta^-N - 1))
+    T = T / eos.T0
+
+    # T = T < 1e-13 ? 1e-13 : T
+
+    return eos.cv * log(T) + eos.S0 + eos.cv * (V - V0) * eos.G0 / V0
+end
 
 end # module EoS
 # EOF
