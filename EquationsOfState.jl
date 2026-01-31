@@ -8,6 +8,7 @@ module EquationsOfState
 using LinearAlgebra: det, inv, tr
 using SpecialFunctions: expinti
 using ForwardDiff: derivative, gradient, jacobian
+using TensorOperations
 
 using ..Strains
 
@@ -129,18 +130,7 @@ function acoustic_grdef(eos::EoS, ent::Real, F::AbstractVector{<:Real}, n::Abstr
     A = (1 / density_grdef(eos, F)) .* dTdF
     F = reshape(F, (3, 3))
 
-    for i = 1:3
-        for j = 1:3
-            for k = 1:3
-                for l = 1:3
-                    for m = 1:3
-                        acoustic[i, j] += A[m, i, j, l] * F[k, l] * n[m] * n[k]
-                    end
-                end
-            end
-        end
-    end
-    # acoustic = dropdims(sum(A .* reshape(n * (F' * n)', (3,1,1,3)), dims=(1,4)), dims=(1,4))
+    @tensor acoustic[i, j] += A[m, i, j, l] * F[k, l] * n[m] * n[k]
 
     return acoustic
 end
@@ -165,7 +155,7 @@ Compute density from conservative variables for GRP model.
 - eos::EoS: equation of state
 - FQ::AbstractVector{<:Real}): part of conservative variables vector related to strain tensor
 """
-density_GRP(eos::EoS, FQ::AbstractVector{<:Real}) = sqrt(det(reshape(FQ, (3, 3)) / eos.rho0)
+density_GRP(eos::EoS, FQ::AbstractVector{<:Real}) = sqrt(det(reshape(FQ, (3, 3)) / eos.rho0))
 
 # ##############################################################################
 # Barton2009
