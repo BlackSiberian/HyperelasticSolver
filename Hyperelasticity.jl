@@ -54,7 +54,7 @@ function cons2data(eos::T, Q::Array{<:Any,1}) where {T<:EoS}
   G = finger(def_grad)
   ent = entropy(eos, e_int, G)
   strs = stress(eos, ent, def_grad)
-  temp = temperature(eos, ent, def_grad)
+  temp = temperature(eos, ent, G)
 
   pres = -1 / 3 * tr(reshape(strs, (3, 3)))
   dev = reshape(strs, (3, 3)) + pres * I
