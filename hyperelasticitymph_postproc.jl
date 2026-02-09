@@ -9,7 +9,7 @@ using ForwardDiff: derivative
 
 export generate_plots_from_simulation_2ph, generate_plots_from_file_2ph
 
-pythonplot()
+pyplot()
 
 #==========================================================================================
                       НОВАЯ ФУНКЦИЯ-ПОМОЩНИК ДЛЯ ОБРАБОТКИ ДАННЫХ
