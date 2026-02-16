@@ -25,7 +25,8 @@ using ForwardDiff: derivative
 # Δt must be greater than relax time
 
 using Plots
-gr()
+pyplot()
+ENV["MPLBACKEND"] = "Agg"
 
 #Setup
 eos = (Barton2009(), Barton2009())
@@ -68,14 +69,16 @@ println(temp[1][1], "\t", temp[1][2])
 println(temp[end][1], "\t", temp[end][2])
 
 pres = [[-1 / 3 / frac[t][p] * tr(strs[t][p]) for p in 1:nph] for t in 1:nt]
+println("Давления: ", pres[end])
+println("Температуры (через derivative): ", [derivative(S -> energy(eos[i], S, G[end][i]), ent[end][i]) for i in 1:2])
 
-vonMises = [[sqrt(
-  ((strs[t][p][1][1] - strs[t][p][2][2])^2
-   + (strs[t][p][2][2] - strs[t][p][3][3])^2
-   + (strs[t][p][3][3] - strs[t][p][1][1])^2
-   + 6 * (strs[t][p][1][2]^2 + strs[t][p][2][3]^2 + strs[t][p][3][1]^2))
-  /
-  2) for p in 1:nph] for t in 1:nt]
+# vonMises = [[sqrt(
+#   ((strs[t][p][1][1] - strs[t][p][2][2])^2
+#    + (strs[t][p][2][2] - strs[t][p][3][3])^2
+#    + (strs[t][p][3][3] - strs[t][p][1][1])^2
+#    + 6 * (strs[t][p][1][2]^2 + strs[t][p][2][3]^2 + strs[t][p][3][1]^2))
+#   /
+#   2) for p in 1:nph] for t in 1:nt]
 
 for i in 1:3
   plot(sol.t, [_vel[1][i] for _vel in vel[:]], title="u_$i", label="Phase 1")
@@ -83,13 +86,13 @@ for i in 1:3
   savefig("Velocity_$i.png")
 end
 
-for i in 1:3
-  for j in 1:i
-    plot(sol.t, [_strs[1][i][j] for _strs in strs[:]], title="stress_$i$j", label="Phase 1")
-    plot!(sol.t, [_strs[2][i][j] for _strs in strs[:]], label="Phase 2")
-    savefig("Stress_$i$j")
-  end
-end
+# for i in 1:3
+#   for j in 1:i
+#     plot(sol.t, [_strs[1][i][j] for _strs in strs[:]], title="stress_$i$j", label="Phase 1")
+#     plot!(sol.t, [_strs[2][i][j] for _strs in strs[:]], label="Phase 2")
+#     savefig("Stress_$i$j")
+#   end
+# end
 
 plot(sol.t, [_temp[1] for _temp in temp[:]], title="temperature", label="Phase 1")
 plot!(sol.t, [_temp[2] for _temp in temp[:]], label="Phase 2")
@@ -103,8 +106,8 @@ plot(sol.t, [_true_den[1] for _true_den in true_den[:]], title="true density", l
 plot!(sol.t, [_true_den[2] for _true_den in true_den[:]], label="Phase 2")
 savefig("True_density.png")
 
-plot(sol.t, [_vonMises[:][1] for _vonMises in vonMises[:]], title="Von-Mises", label="Phase 1")
-plot!(sol.t, [_vonMises[:][2] for _vonMises in vonMises[:]], label="Phase 2")
+# plot(sol.t, [_vonMises[:][1] for _vonMises in vonMises[:]], title="Von-Mises", label="Phase 1")
+# plot!(sol.t, [_vonMises[:][2] for _vonMises in vonMises[:]], label="Phase 2")
 
 plot(sol.t, [_frac[1] for _frac in frac[:]], title="Fraction", label="Phase 1")
 plot!(sol.t, [_frac[2] for _frac in frac[:]], label="Phase 2")
