@@ -25,7 +25,7 @@ function relaxation(eos::Tuple{T,T}, initial::Array{<:Any,1}, dt) where {T<:EoS}
 
     t_span = (0, dt)
 
-    tau_a = dt * 10
+    tau_a = dt * 100
     # tau_u = dt / 1000
     # tau_u = dt / 200000
     tau_u = dt / 200
@@ -204,7 +204,7 @@ function init_relaxation(Q::Array{<:Any,1}, params, t::Float64)
     temp_hat = sum(frac .* temp)
     Q_t = [temp_hat - temp[p] for p in 1:nph]
     a_1 = 1.0
-    theta_t = 10.0 # Скорость релаксации по температуре
+    theta_t = 1.0 # Скорость релаксации по температуре
     k_t = (temp[2] * pres[1] - temp[1] * pres[2]) / (a_1 * temp[1] * temp[2] * Q_t[1])
     k_t = [k_t, -k_t * Q_t[2] / Q_t[1]]
 
